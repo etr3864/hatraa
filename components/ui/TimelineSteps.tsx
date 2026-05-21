@@ -32,7 +32,7 @@ export function TimelineSteps() {
   const circleRefs = useRef<(HTMLDivElement | null)[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
-  const [progress, setProgress] = useState(0);
+  const progressRef = useRef(0);
   const [activeSteps, setActiveSteps] = useState<boolean[]>([false, false, false]);
   const [pathD, setPathD] = useState("");
   const [stepThresholds, setStepThresholds] = useState<number[]>([0.33, 0.5, 0.66]);
@@ -118,35 +118,52 @@ export function TimelineSteps() {
     const container = containerRef.current;
     if (!container) return;
 
+    let rafId: number;
+
     const handleScroll = () => {
-      const rect = container.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-      const containerTop = rect.top;
-      const containerHeight = rect.height;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const rect = container.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const containerTop = rect.top;
+        const containerHeight = rect.height;
 
-      const start = windowHeight * 0.75;
-      const scrolled = start - containerTop;
-      const totalScrollable = containerHeight;
+        const start = windowHeight * 0.75;
+        const scrolled = start - containerTop;
+        const totalScrollable = containerHeight;
 
-      const pct = Math.max(0, Math.min(1, scrolled / totalScrollable));
-      setProgress(pct);
+        const pct = Math.max(0, Math.min(1, scrolled / totalScrollable));
+        progressRef.current = pct;
 
-      const newActive = stepThresholds.map((t) => pct >= t);
-      setActiveSteps(newActive);
+        const path = pathRef.current;
+        if (path && pathD) {
+          const length = path.getTotalLength();
+          path.style.strokeDashoffset = `${length * (1 - pct)}`;
+        }
+
+        const newActive = stepThresholds.map((t) => pct >= t);
+        const changed = newActive.some((v, i) => v !== activeSteps[i]);
+        if (changed) {
+          setActiveSteps(newActive);
+        }
+      });
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [stepThresholds]);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      cancelAnimationFrame(rafId);
+    };
+  }, [stepThresholds, pathD, activeSteps]);
 
   useEffect(() => {
     const path = pathRef.current;
     if (!path || !pathD) return;
     const length = path.getTotalLength();
     path.style.strokeDasharray = `${length}`;
-    path.style.strokeDashoffset = `${length * (1 - progress)}`;
-  }, [progress, pathD]);
+    path.style.strokeDashoffset = `${length * (1 - progressRef.current)}`;
+  }, [pathD]);
 
   const isLastActive = activeSteps[2];
 
@@ -186,7 +203,7 @@ export function TimelineSteps() {
               strokeWidth="2.5"
               strokeLinecap="round"
               fill="none"
-              className="transition-[stroke-dashoffset] duration-100 ease-out"
+              className="will-change-[stroke-dashoffset]"
             />
           </g>
         )}
