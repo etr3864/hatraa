@@ -62,7 +62,7 @@ function Hero() {
   return (
     <section className="relative overflow-hidden min-h-[90vh] flex items-center justify-center bg-[#0d0d0f]">
       <div className="absolute inset-0 bg-radial-fade pointer-events-none" />
-      <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
+      <div className="absolute inset-0 bg-grid opacity-100 pointer-events-none" />
 
       <div className="absolute top-[20%] right-[10%] w-72 h-72 rounded-full bg-[var(--color-accent)]/[0.04] blur-[100px] animate-float-slow pointer-events-none" />
       <div className="absolute bottom-[15%] left-[5%] w-96 h-96 rounded-full bg-[var(--color-accent)]/[0.03] blur-[120px] animate-float-delayed pointer-events-none" />
