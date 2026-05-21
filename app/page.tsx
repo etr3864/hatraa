@@ -398,7 +398,7 @@ function WhyItWorks() {
               למה זה עובד?
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-ink)]">
-              מכתבים נוצרים על ידי מודל מאומן על עריכת דין והחוק הישראלי בלבד.
+              המכתבים נוצרים על ידי מודל מאומן על עריכת דין והחוק הישראלי בלבד.
             </h2>
           </div>
         </ScrollReveal>
