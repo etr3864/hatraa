@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  name      String
+  idNumber  String?
+  address   String
+  phone     String
+  email     String
+  createdAt DateTime @default(now())
+
+  letter  Letter?
+  payment Payment?
+}
+
+model Letter {
+  id                String   @id @default(uuid())
+  leadId            String   @unique
+  lead              Lead     @relation(fields: [leadId], references: [id])
+
+  category          String
+  rawInput          String
+  extractedData     Json
+
+  respondentName    String
+  respondentAddress String?
+  eventDate         String?
+  amount            String?
+
+  tone              String
+  goal              String
+
+  content           String
+  upsellMessage     String
+  fileName          String
+
+  createdAt         DateTime @default(now())
+}
+
+model Payment {
+  id        String    @id @default(uuid())
+  leadId    String    @unique
+  lead      Lead      @relation(fields: [leadId], references: [id])
+
+  amount    Int
+  status    String
+  paidAt    DateTime?
+
+  createdAt DateTime  @default(now())
+}

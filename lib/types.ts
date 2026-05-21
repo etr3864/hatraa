@@ -1,0 +1,114 @@
+export type Category = "consumer" | "employment" | "rental" | "tort";
+export type Tone = "firm" | "businesslike" | "conciliatory" | "threatening";
+export type Goal = "compensation" | "fix" | "apology" | "intimidate";
+export type PaymentStatus = "pending" | "completed" | "mock";
+
+export interface ExtractedData {
+  respondentName: string;
+  respondentAddress?: string;
+  eventDate?: string;
+  amount?: string;
+  description: string;
+  category: Category;
+  rawTranscription?: string;
+}
+
+export interface WizardState {
+  step: 1 | 2 | 3 | 4 | 5;
+  rawInput: string;
+  extractedData: ExtractedData | null;
+  respondentName: string;
+  respondentAddress: string;
+  eventDate: string;
+  amount: string;
+  description: string;
+  category: Category | null;
+  tone: Tone | null;
+  goal: Goal | null;
+  senderName: string;
+  senderIdNumber: string;
+  senderAddress: string;
+  senderPhone: string;
+  senderEmail: string;
+}
+
+export type SenderType = "individual" | "company";
+
+export interface LetterInput {
+  category: Category;
+  respondentName: string;
+  respondentAddress?: string;
+  eventDate?: string;
+  amount?: string;
+  description: string;
+  tone: Tone;
+  goal: Goal;
+  rawInput: string;
+  senderType: SenderType;
+  senderName: string;
+  senderAddress: string;
+  senderPhone: string;
+  senderEmail: string;
+  senderIdNumber?: string;
+  companyName?: string;
+  companyNumber?: string;
+  signatoryRole?: string;
+  evidence?: EvidenceFile[];
+}
+
+export interface LetterOutput {
+  content: string;
+  upsellMessage: string;
+  fileName: string;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  idNumber: string | null;
+  address: string;
+  phone: string;
+  email: string;
+  createdAt: string;
+  letter: LetterRecord | null;
+  payment: PaymentRecord | null;
+}
+
+export interface LetterRecord {
+  id: string;
+  leadId: string;
+  category: Category;
+  rawInput: string;
+  extractedData: ExtractedData;
+  respondentName: string;
+  respondentAddress: string | null;
+  eventDate: string | null;
+  amount: string | null;
+  tone: Tone;
+  goal: Goal;
+  content: string;
+  upsellMessage: string;
+  fileName: string;
+  createdAt: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  leadId: string;
+  amount: number;
+  status: PaymentStatus;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface EvidenceFile {
+  name: string;
+  type: string;
+  base64: string;
+  description?: string;
+}
+
+export interface ApiError {
+  error: string;
+  code?: string;
+}
