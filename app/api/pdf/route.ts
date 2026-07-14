@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       letterInput,
       content,
       withSignature: allowSignature,
+      attorneyVerified: allowSignature,
       signatureDataUrl,
     });
 

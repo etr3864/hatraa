@@ -1,12 +1,16 @@
 "use client";
 
 import { clsx } from "@/lib/utils";
+import { attorneyShortLabel } from "@/lib/attorney";
 
 interface LetterDisplayProps {
   content: string;
   senderName: string;
   respondentName: string;
+  /** מצב לפני בחירת אפסייל */
   withSignatureBlur: boolean;
+  /** אחרי תשלום + rewrite */
+  attorneyVerified?: boolean;
 }
 
 export function LetterDisplay({
@@ -14,10 +18,25 @@ export function LetterDisplay({
   senderName,
   respondentName,
   withSignatureBlur,
+  attorneyVerified = false,
 }: LetterDisplayProps) {
   const paragraphs = content
     .split(/\n{2,}/)
     .filter((p) => p.trim().length > 0);
+
+  const fromLabel = attorneyVerified
+    ? `${attorneyShortLabel()} (בשם ${senderName})`
+    : senderName;
+
+  const disclaimer = (() => {
+    if (withSignatureBlur) {
+      return "מכתב זה נוצר באמצעות מערכת בינה מלאכותית (AI) ואינו מהווה ייעוץ משפטי. ניתן לשדרג למכתב בשם עו\"ד עם חתימה מאומתת.";
+    }
+    if (attorneyVerified) {
+      return "מכתב זה נוצר באמצעות מערכת בינה מלאכותית (AI), נערך בלשון ייצוג ונחתם כמאומת. אינו מחליף ייעוץ משפטי פרטני.";
+    }
+    return "מכתב זה נוצר באמצעות מערכת בינה מלאכותית (AI) ואינו מהווה ייעוץ משפטי. לתביעות מורכבות מומלץ להתייעץ עם עורך דין.";
+  })();
 
   return (
     <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
@@ -30,7 +49,7 @@ export function LetterDisplay({
 
       <div className="p-6 md:p-8 font-[Heebo,sans-serif] text-sm leading-relaxed">
         <div className="flex justify-between text-xs text-[var(--color-subtle)] mb-6">
-          <span>מאת: {senderName}</span>
+          <span>מאת: {fromLabel}</span>
           <span>
             {new Date().toLocaleDateString("he-IL", {
               day: "numeric",
@@ -52,31 +71,31 @@ export function LetterDisplay({
           ))}
         </div>
 
-        <div
-          className={clsx(
-            "mt-8 pt-6 border-t border-[var(--color-border)]",
-            withSignatureBlur && "blur-signature select-none"
-          )}
-        >
-          <div className="flex flex-col gap-2">
-            <div className="w-36 h-12 bg-[var(--color-muted)] rounded opacity-70 flex items-center justify-center">
-              <span className="text-xs text-[var(--color-subtle)] font-medium">
-                חתימת עו&quot;ד
-              </span>
+        {(withSignatureBlur || attorneyVerified) && (
+          <div
+            className={clsx(
+              "mt-8 pt-6 border-t border-[var(--color-border)]",
+              withSignatureBlur && "blur-signature select-none"
+            )}
+          >
+            <div className="flex flex-col gap-2">
+              <div className="w-36 h-12 bg-[var(--color-muted)] rounded opacity-70 flex items-center justify-center">
+                <span className="text-xs text-[var(--color-subtle)] font-medium">
+                  חתימת עו&quot;ד
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-subtle)]">
+                {attorneyVerified
+                  ? `${attorneyShortLabel()} · מאומת ומאושר`
+                  : 'עו"ד · מאומת ומאושר'}
+              </p>
             </div>
-            <p className="text-xs text-[var(--color-subtle)]">
-              {withSignatureBlur ? "עו\"ד · מאומת ומאושר" : senderName}
-            </p>
           </div>
-        </div>
+        )}
 
         <div className="mt-6 pt-4 border-t border-dashed border-[var(--color-border)]">
           <p className="text-[11px] text-[var(--color-placeholder)] leading-relaxed">
-            מכתב זה נוצר באמצעות מערכת בינה מלאכותית (AI) ואינו מהווה ייעוץ משפטי.
-            {withSignatureBlur
-              ? " ניתן להוסיף חתימת עורך דין למכתב לקבלת תוקף משפטי מלא."
-              : " מכתב זה נחתם על ידי עורך דין ומהווה מסמך משפטי תקף."
-            }
+            {disclaimer}
           </p>
         </div>
       </div>

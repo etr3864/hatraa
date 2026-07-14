@@ -16,6 +16,7 @@ export interface PdfTemplateOptions {
   respondentName: string;
   respondentAddress?: string;
   withSignature: boolean;
+  attorneyVerified?: boolean;
   signatureDataUrl?: string;
 }
 

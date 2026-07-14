@@ -8,6 +8,7 @@ import { UpsellBlock } from "@/components/result/UpsellBlock";
 import { DownloadSection } from "@/components/result/DownloadSection";
 import { IconCheck, IconArrowRight } from "@tabler/icons-react";
 import type { LetterInput } from "@/lib/types";
+import { attorneyShortLabel } from "@/lib/attorney";
 
 interface LetterResult {
   leadId: string;
@@ -16,6 +17,7 @@ interface LetterResult {
   upsellMessage: string;
   fileName: string;
   letterInput: LetterInput;
+  attorneyVerified?: boolean;
 }
 
 type UpsellState = "pending" | "accepted" | "declined";
@@ -24,7 +26,8 @@ export default function ResultPage() {
   const router = useRouter();
   const [result, setResult] = useState<LetterResult | null>(null);
   const [upsellState, setUpsellState] = useState<UpsellState>("pending");
-  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeStep, setUpgradeStep] = useState<"pay" | "rewrite" | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("letterResult");
@@ -33,27 +36,60 @@ export default function ResultPage() {
       return;
     }
     try {
-      setResult(JSON.parse(stored));
+      const parsed = JSON.parse(stored) as LetterResult;
+      setResult(parsed);
+      if (parsed.attorneyVerified) {
+        setUpsellState("accepted");
+      }
     } catch {
       router.replace("/wizard");
     }
   }, [router]);
 
+  const persistResult = (next: LetterResult) => {
+    setResult(next);
+    localStorage.setItem("letterResult", JSON.stringify(next));
+  };
+
   const handleAcceptUpsell = async () => {
     if (!result) return;
-    setIsPaymentLoading(true);
+    setIsUpgrading(true);
+    setUpgradeStep("pay");
     try {
-      const res = await fetch("/api/payment", {
+      const payRes = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadId: result.leadId }),
       });
-      if (!res.ok) throw new Error("שגיאה בתשלום");
+      if (!payRes.ok) throw new Error("שגיאה בתשלום");
+
+      setUpgradeStep("rewrite");
+      const rewriteRes = await fetch("/api/attorney-rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: result.leadId,
+          content: result.content,
+          letterInput: result.letterInput,
+        }),
+      });
+      const data = await rewriteRes.json();
+      if (!rewriteRes.ok) {
+        throw new Error(data.error || "שגיאה בניסוח מחדש");
+      }
+
+      persistResult({
+        ...result,
+        content: data.content,
+        attorneyVerified: true,
+      });
       setUpsellState("accepted");
-    } catch {
-      alert("שגיאה בעיבוד התשלום. נסה שוב.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "שגיאה בעיבוד. נסה שוב.";
+      alert(msg);
     } finally {
-      setIsPaymentLoading(false);
+      setIsUpgrading(false);
+      setUpgradeStep(null);
     }
   };
 
@@ -71,6 +107,7 @@ export default function ResultPage() {
 
   const showDownload = upsellState === "accepted" || upsellState === "declined";
   const withSignature = upsellState === "accepted";
+  const attorneyVerified = upsellState === "accepted" && !!result.attorneyVerified;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]" dir="rtl">
@@ -100,51 +137,60 @@ export default function ResultPage() {
           </p>
         </div>
 
+        {isUpgrading && (
+          <div className="rounded-lg border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-5 py-4 text-sm text-[var(--color-ink)]">
+            {upgradeStep === "pay"
+              ? "מאשר תשלום..."
+              : `מנסח מחדש בשם ${attorneyShortLabel()}...`}
+          </div>
+        )}
+
         <LetterDisplay
           content={result.content}
           senderName={result.letterInput.senderName}
           respondentName={result.letterInput.respondentName}
-          withSignatureBlur={upsellState === "pending"}
+          withSignatureBlur={upsellState === "pending" && !isUpgrading}
+          attorneyVerified={attorneyVerified}
         />
 
-        {upsellState === "pending" && (
+        {upsellState === "pending" && !isUpgrading && (
           <UpsellBlock
             upsellMessage={result.upsellMessage}
             onAccept={handleAcceptUpsell}
             onDecline={handleDeclineUpsell}
-            isLoading={isPaymentLoading}
+            isLoading={isUpgrading}
           />
         )}
 
         {upsellState === "declined" && (
           <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-3">
             <p className="text-sm text-[var(--color-body)]">
-              רוצה בכל זאת להוסיף חתימת עורך דין למכתב?
+              רוצה בכל זאת מכתב בשם עו&quot;ד עם חתימה?
             </p>
             <button
               onClick={() => setUpsellState("pending")}
-              className="text-sm font-medium text-[var(--color-accent)] hover:opacity-80 transition-opacity whitespace-nowrap"
+              className="text-sm font-medium text-[var(--color-accent)] hover:opacity-80 transition-opacity whitespace-nowrap bg-transparent border-0 cursor-pointer"
             >
-              הוסף חתימה
+              שדרג עכשיו
             </button>
           </div>
         )}
 
-        {upsellState === "accepted" && (
+        {upsellState === "accepted" && attorneyVerified && (
           <div className="p-5 rounded-xl bg-[var(--color-success)]/10 border border-[var(--color-success)]/20 flex items-center gap-3">
             <IconCheck size={20} className="text-[var(--color-success)] flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-[var(--color-success)]">
-                תשלום בוצע בהצלחה
+                שודרג למכתב בשם {attorneyShortLabel()}
               </p>
               <p className="text-xs text-[var(--color-body)] mt-0.5">
-                המכתב כולל עכשיו חתימת עורך דין
+                הניסוח עודכן ללשון ייצוג, כולל חתימה מאומתת
               </p>
             </div>
           </div>
         )}
 
-        {showDownload && (
+        {showDownload && !isUpgrading && (
           <DownloadSection
             leadId={result.leadId}
             fileName={result.fileName}

@@ -3,6 +3,10 @@
     "app/api/pdf/route.ts": {
       "memory": 1024,
       "maxDuration": 60
+    },
+    "app/api/attorney-rewrite/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
     }
   }
 }

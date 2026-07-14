@@ -65,11 +65,12 @@ interface RenderOptions {
   letterInput: LetterInput;
   content: string;
   withSignature: boolean;
+  attorneyVerified?: boolean;
   signatureDataUrl?: string;
 }
 
 export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
-  const { letterInput, content, withSignature, signatureDataUrl } = opts;
+  const { letterInput, content, withSignature, attorneyVerified, signatureDataUrl } = opts;
 
   const isCompany = letterInput.senderType === "company";
   const html = buildLetterHtml({
@@ -85,6 +86,7 @@ export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
     respondentName: letterInput.respondentName,
     respondentAddress: letterInput.respondentAddress,
     withSignature,
+    attorneyVerified: !!attorneyVerified && withSignature,
     signatureDataUrl,
   });
 

@@ -42,6 +42,12 @@ export function getPdfStyles(): string {
     line-height: 1.5;
   }
 
+  .party-meta {
+    margin-top: 8px;
+    font-size: 10pt !important;
+    color: #5a5f66 !important;
+  }
+
   .letter-title {
     text-align: center;
     margin-bottom: 6px;
