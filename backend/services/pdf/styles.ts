@@ -136,5 +136,17 @@ export function getPdfStyles(): string {
     color: #5a5f66;
     margin-top: 16px;
   }
+
+  .appendix-index {
+    margin: 12px 0 0 20px;
+    padding: 0;
+    font-size: 11pt;
+    color: #0f1c28;
+    line-height: 1.8;
+  }
+
+  .appendix-index li {
+    margin-bottom: 6px;
+  }
 `;
 }

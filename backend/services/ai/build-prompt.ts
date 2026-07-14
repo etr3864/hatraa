@@ -5,6 +5,7 @@ import { formatKnowledgeForPrompt } from "./knowledge";
 import { getExamples, formatExamplesForPrompt } from "./examples";
 import { sanitizeInput, wrapUserInput } from "../security/sanitize";
 import { stripAiDashes } from "./strip-ai-dashes";
+import { evidenceLabel } from "@/lib/evidence-labels";
 
 function getToneInstruction(tone: string): string {
   const map: Record<string, string> = {
@@ -26,6 +27,21 @@ function getGoalInstruction(goal: string): string {
   return map[goal] ?? "";
 }
 
+function buildEvidenceSection(input: LetterInput): string {
+  const files = input.evidence;
+  if (!files?.length) {
+    return "\n\nאין ראיות מצורפות. אל תאזכר נספחים או מצורפים שאינם קיימים.";
+  }
+
+  const lines = files.map((e, i) => {
+    const label = evidenceLabel(i);
+    const desc = e.description ? `: ${sanitizeInput(e.description)}` : "";
+    return `- ${label}: ${sanitizeInput(e.name)}${desc}`;
+  });
+
+  return `\n\nראיות מצורפות לקובץ ההורדה (השתמש רק בתוויות האלה):\n${lines.join("\n")}\nאסור להמציא נספחים נוספים.`;
+}
+
 export function buildUserPrompt(
   input: LetterInput,
   knowledge: KnowledgeFile,
@@ -43,15 +59,7 @@ export function buildUserPrompt(
     ? `${sanitizeInput(input.companyName ?? "")} (ע"י ${sanitizeInput(input.senderName)}${input.signatoryRole ? `, ${sanitizeInput(input.signatoryRole)}` : ""})`
     : sanitizeInput(input.senderName);
 
-  const evidenceSection =
-    input.evidence && input.evidence.length > 0
-      ? `\n\nראיות שצורפו (${input.evidence.length} קבצים):\n${input.evidence
-          .map(
-            (e, i) =>
-              `- ראיה ${i + 1}: ${sanitizeInput(e.name)}${e.description ? `: ${sanitizeInput(e.description)}` : ""}`
-          )
-          .join("\n")}\n\nהשתמש בראיות אלו בגוף המכתב כנספחים (נספח א׳, נספח ב׳).`
-      : "";
+  const evidenceSection = buildEvidenceSection(input);
 
   const companySenderNote = isCompany
     ? `\n\nהערה: השולח הוא חברה בע"מ. המכתב בשם החברה, לשון "החברה", חותם מורשה.`

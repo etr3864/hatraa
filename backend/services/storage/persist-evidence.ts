@@ -6,13 +6,7 @@ import {
 } from "@/backend/services/storage/r2";
 import { prisma } from "@/backend/services/db/prisma";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
-
-const HEBREW_SUFFIXES = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ז׳", "ח׳"];
-
-export function evidenceLabel(index: number): string {
-  const suffix = HEBREW_SUFFIXES[index] ?? String(index + 1);
-  return `נספח ${suffix}`;
-}
+import { evidenceLabel } from "@/lib/evidence-labels";
 
 export async function persistLeadEvidence(
   leadId: string,
@@ -20,7 +14,7 @@ export async function persistLeadEvidence(
 ): Promise<number> {
   if (!files?.length) return 0;
   if (!isR2Configured()) {
-    console.error("[evidence] R2 לא מוגדר — הראיות לא נשמרו");
+    console.error("[evidence] R2 לא מוגדר - הראיות לא נשמרו");
     return 0;
   }
 

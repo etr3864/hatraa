@@ -1,5 +1,8 @@
 import { buildLetterHtml } from "./template";
-import { buildEvidenceAppendicesHtml, type PdfEvidenceItem } from "./evidence-appendices";
+import { buildEvidenceAppendicesHtml } from "./evidence-appendices";
+import { loadAppendixPdfBuffers } from "./load-appendix-pdfs";
+import { mergePdfBuffers } from "./merge-pdfs";
+import type { PdfEvidenceItem } from "./evidence-types";
 import type { LetterInput } from "@/lib/types";
 
 function getHebrewDate(): string {
@@ -150,7 +153,9 @@ export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
       margin: { top: "25mm", bottom: "15mm", left: "0mm", right: "0mm" },
     });
 
-    return Buffer.from(pdfBuffer);
+    const mainPdf = Buffer.from(pdfBuffer);
+    const appendixPdfs = await loadAppendixPdfBuffers(evidence ?? []);
+    return mergePdfBuffers(mainPdf, appendixPdfs);
   } finally {
     await browser.close();
   }
