@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const page = parseInt(searchParams.get("page") ?? "1", 10);
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 100);
+    // Admin-only — מאפשר ייצוא מלא (עד 5k) בלי pagination מיותר
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 5000);
     const skip = (page - 1) * limit;
 
     const where = {

@@ -20,6 +20,23 @@
   --color-muted: #1a1a1d;
 }
 
+/* CRM /database — ניגודיות קריאה על רקע בהיר (בלי לגעת באתר השיווקי) */
+.admin-crm {
+  --color-bg: #f4f4f5;
+  --color-surface: #ffffff;
+  --color-elevated: #fafafa;
+  --color-border: #d4d4d8;
+  --color-border-subtle: #e4e4e7;
+  --color-ink: #18181b;
+  --color-body: #3f3f46;
+  --color-subtle: #71717a;
+  --color-placeholder: #a1a1aa;
+  --color-muted: #f4f4f5;
+  background: var(--color-bg);
+  color: var(--color-body);
+  min-height: 100vh;
+}
+
 @theme inline {
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
