@@ -4,16 +4,16 @@ import { useState, useRef, useCallback } from "react";
 import { IconUpload, IconX, IconFile, IconPhoto, IconFileText } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import type { EvidenceFile } from "@/lib/types";
+import {
+  normalizeEvidenceMime,
+  shortenFileName,
+  isSupportedEvidenceMime,
+  SUPPORTED_EVIDENCE_MIMES,
+} from "@/lib/evidence-mime";
 
 const MAX_FILES = 8;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ACCEPTED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "application/pdf",
-];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_TYPES = Array.from(SUPPORTED_EVIDENCE_MIMES);
 
 interface EvidenceStepProps {
   initialFiles?: EvidenceFile[];
@@ -38,12 +38,13 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       }
 
       for (const file of incoming) {
-        if (!ACCEPTED_TYPES.includes(file.type)) {
-          setError(`סוג קובץ לא נתמך: ${file.name}. ניתן להעלות תמונות או PDF`);
+        const mime = normalizeEvidenceMime(file.type, file.name);
+        if (!isSupportedEvidenceMime(mime)) {
+          setError(`סוג קובץ לא נתמך: ${shortenFileName(file.name)}. ניתן להעלות תמונות או PDF`);
           return;
         }
         if (file.size > MAX_FILE_SIZE) {
-          setError(`הקובץ ${file.name} גדול מדי. מקסימום 10MB לקובץ`);
+          setError(`הקובץ ${shortenFileName(file.name)} גדול מדי. מקסימום 10MB לקובץ`);
           return;
         }
       }
@@ -51,17 +52,23 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       const newFiles: EvidenceFile[] = await Promise.all(
         incoming.map(
           (file) =>
-            new Promise<EvidenceFile>((resolve) => {
+            new Promise<EvidenceFile>((resolve, reject) => {
               const reader = new FileReader();
               reader.onload = () => {
-                const base64 = (reader.result as string).split(",")[1];
+                const result = reader.result as string;
+                const base64 = result.includes(",") ? result.split(",")[1] : result;
+                if (!base64) {
+                  reject(new Error("לא הצלחנו לקרוא את הקובץ"));
+                  return;
+                }
                 resolve({
-                  name: file.name,
-                  type: file.type,
+                  name: shortenFileName(file.name, 120),
+                  type: normalizeEvidenceMime(file.type, file.name),
                   base64,
                   description: "",
                 });
               };
+              reader.onerror = () => reject(new Error("לא הצלחנו לקרוא את הקובץ"));
               reader.readAsDataURL(file);
             })
         )
@@ -163,7 +170,7 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
         <input
           ref={inputRef}
           type="file"
-          accept={ACCEPTED_TYPES.join(",")}
+          accept={[...ACCEPTED_TYPES, ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"].join(",")}
           multiple
           className="hidden"
           onChange={(e) => {

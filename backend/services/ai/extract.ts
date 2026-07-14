@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ExtractedData, Category, EvidenceFile } from "@/lib/types";
 import { VALID_CATEGORIES } from "@/lib/constants";
+import {
+  normalizeEvidenceMime,
+  isSupportedEvidenceMime,
+} from "@/lib/evidence-mime";
 import { sanitizeInput, wrapUserInput } from "../security/sanitize";
 
 const CATEGORY_LIST =
@@ -87,30 +91,33 @@ export async function extractContext(
 
   if (hasEvidence) {
     for (const file of evidence) {
-      if (file.type.startsWith("image/")) {
-        parts.push({
-          inlineData: { mimeType: file.type, data: file.base64 },
-        });
-        if (file.description) {
-          parts.push({ text: `תיאור הראיה מהמשתמש: ${file.description}` });
-        }
-      } else if (file.type === "application/pdf") {
-        parts.push({
-          inlineData: { mimeType: file.type, data: file.base64 },
-        });
-        if (file.description) {
-          parts.push({ text: `תיאור מסמך PDF מהמשתמש: ${file.description}` });
-        }
+      const mime = normalizeEvidenceMime(file.type, file.name);
+      if (!isSupportedEvidenceMime(mime)) continue;
+
+      parts.push({
+        inlineData: { mimeType: mime, data: file.base64 },
+      });
+      if (file.description) {
+        const label =
+          mime === "application/pdf"
+            ? "תיאור מסמך PDF מהמשתמש"
+            : "תיאור הראיה מהמשתמש";
+        parts.push({ text: `${label}: ${file.description}` });
       }
     }
   }
 
   parts.push({ text: `${prompt}\n\nטקסט לניתוח:\n${wrapUserInput(textToAnalyze)}` });
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts }],
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts }],
+    });
+  } catch (err) {
+    throw new Error(mapGeminiClientError(err));
+  }
 
   const raw = response.text ?? "";
   const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
@@ -146,25 +153,43 @@ async function transcribeAudio(
   base64: string,
   mimeType: string
 ): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: base64,
+  const safeMime = (mimeType || "audio/webm").split(";")[0].trim() || "audio/webm";
+
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType: safeMime,
+                data: base64,
+              },
             },
-          },
-          {
-            text: "תמלל את ההקלטה הבאה לעברית. החזר את התמלול בלבד, ללא הסברים נוספים.",
-          },
-        ],
-      },
-    ],
-  });
+            {
+              text: "תמלל את ההקלטה הבאה לעברית. החזר את התמלול בלבד, ללא הסברים נוספים.",
+            },
+          ],
+        },
+      ],
+    });
+  } catch (err) {
+    throw new Error(mapGeminiClientError(err));
+  }
 
   return response.text ?? "";
+}
+
+function mapGeminiClientError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/did not match the expected pattern/i.test(message)) {
+    return "אחת מהראיות בפורמט לא נתמך או פגום. נסה לשמור מחדש כ־JPG/PNG או PDF ולהעלות שוב.";
+  }
+  if (/INVALID_ARGUMENT|unsupported|mime/i.test(message)) {
+    return "לא הצלחנו לקרוא את הראיות. ודא שקבצי התמונה/PDF תקינים ונסה שוב.";
+  }
+  return message || "שגיאה בחילוץ הפרטים";
 }

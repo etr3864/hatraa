@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractContext } from "@/backend/services/ai/extract";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
+import {
+  normalizeEvidenceMime,
+  isSupportedEvidenceMime,
+  shortenFileName,
+} from "@/lib/evidence-mime";
 import type { EvidenceFile } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
@@ -27,11 +32,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "נדרש טקסט או הקלטה" }, { status: 400 });
     }
 
-    const sanitizedEvidence = evidence?.map((e) => ({
-      ...e,
-      name: sanitizeInput(e.name),
-      description: e.description ? sanitizeInput(e.description) : undefined,
-    }));
+    const sanitizedEvidence = evidence
+      ?.map((e) => {
+        const type = normalizeEvidenceMime(e.type, e.name);
+        return {
+          ...e,
+          name: shortenFileName(sanitizeInput(e.name), 120),
+          type,
+          description: e.description ? sanitizeInput(e.description) : undefined,
+        };
+      })
+      .filter((e) => isSupportedEvidenceMime(e.type) && !!e.base64);
 
     const input =
       audio && mimeType

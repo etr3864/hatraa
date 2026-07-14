@@ -7,6 +7,11 @@ import {
 import { prisma } from "@/backend/services/db/prisma";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
 import { evidenceLabel } from "@/lib/evidence-labels";
+import {
+  normalizeEvidenceMime,
+  isSupportedEvidenceMime,
+  shortenFileName,
+} from "@/lib/evidence-mime";
 
 export async function persistLeadEvidence(
   leadId: string,
@@ -22,24 +27,28 @@ export async function persistLeadEvidence(
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    if (!file?.base64 || !file.name || !file.type) continue;
+    if (!file?.base64 || !file.name) continue;
 
+    const mime = normalizeEvidenceMime(file.type, file.name);
+    if (!isSupportedEvidenceMime(mime)) continue;
+
+    const safeName = shortenFileName(sanitizeInput(file.name), 120);
     const body = Buffer.from(file.base64, "base64");
-    const key = buildEvidenceKey(leadId, file.name, i);
+    const key = buildEvidenceKey(leadId, safeName, i);
 
     try {
       await uploadEvidenceObject({
         key,
         body,
-        contentType: file.type,
+        contentType: mime,
       });
 
       await prisma.evidence.create({
         data: {
           leadId,
           label: evidenceLabel(i),
-          fileName: sanitizeInput(file.name).slice(0, 200),
-          mimeType: file.type.slice(0, 120),
+          fileName: safeName,
+          mimeType: mime,
           sizeBytes: body.length,
           r2Key: key,
           description: file.description

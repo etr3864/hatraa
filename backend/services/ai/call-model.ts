@@ -1,5 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LetterInput } from "@/lib/types";
+import {
+  normalizeEvidenceMime,
+  isSupportedEvidenceMime,
+} from "@/lib/evidence-mime";
 import { SYSTEM_PROMPT } from "./prompts/system";
 import { parseModelJson } from "./parse-response";
 
@@ -23,18 +27,22 @@ export async function callModel(
 
   if (input.evidence && input.evidence.length > 0) {
     for (const file of input.evidence) {
-      if (file.type.startsWith("image/")) {
-        const mediaType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-        contentBlocks.push({
-          type: "image",
-          source: { type: "base64", media_type: mediaType, data: file.base64 },
-        });
-      } else if (file.type === "application/pdf") {
+      const mime = normalizeEvidenceMime(file.type, file.name);
+      if (!isSupportedEvidenceMime(mime)) continue;
+
+      if (mime === "application/pdf") {
         contentBlocks.push({
           type: "document",
           source: { type: "base64", media_type: "application/pdf", data: file.base64 },
         });
+        continue;
       }
+
+      const mediaType = mime as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      contentBlocks.push({
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data: file.base64 },
+      });
     }
   }
 
