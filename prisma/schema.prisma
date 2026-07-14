@@ -15,8 +15,9 @@ model Lead {
   email     String
   createdAt DateTime @default(now())
 
-  letter  Letter?
-  payment Payment?
+  letter   Letter?
+  payment  Payment?
+  evidence Evidence[]
 }
 
 model Letter {
@@ -58,4 +59,22 @@ model Payment {
   paidAt    DateTime?
 
   createdAt DateTime  @default(now())
+}
+
+model Evidence {
+  id          String   @id @default(uuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  label       String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  r2Key       String
+  description String?
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+
+  @@index([leadId])
 }

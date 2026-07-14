@@ -27,6 +27,7 @@ export function buildLeadsCsv(leads: Lead[]): string {
     "תוכן המכתב",
     "שם קובץ",
     "הודעת אפסייל",
+    "ראיות",
     "שילם",
     "סכום תשלום",
     "מאומת משפטית",
@@ -36,6 +37,9 @@ export function buildLeadsCsv(leads: Lead[]): string {
     const letter = l.letter;
     const paid =
       l.payment?.status === "completed" || l.payment?.status === "mock";
+    const evidenceNames = (l.evidence ?? [])
+      .map((e) => `${e.label}: ${e.fileName}`)
+      .join(" | ");
 
     return [
       new Date(l.createdAt).toLocaleString("he-IL"),
@@ -55,6 +59,7 @@ export function buildLeadsCsv(leads: Lead[]): string {
       letter?.content ?? "",
       letter?.fileName ?? "",
       letter?.upsellMessage ?? "",
+      evidenceNames,
       paid ? "כן" : "לא",
       l.payment?.amount != null ? String(l.payment.amount) : "",
       letter?.verified ? "כן" : "לא",

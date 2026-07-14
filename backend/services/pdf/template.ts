@@ -18,6 +18,7 @@ export interface PdfTemplateOptions {
   withSignature: boolean;
   attorneyVerified?: boolean;
   signatureDataUrl?: string;
+  evidenceHtml?: string;
 }
 
 export function buildLetterHtml(opts: PdfTemplateOptions): string {
@@ -57,6 +58,7 @@ ${getPdfStyles()}
   </div>
 
 </div>
+${opts.evidenceHtml ?? ""}
 </body>
 </html>`;
 }

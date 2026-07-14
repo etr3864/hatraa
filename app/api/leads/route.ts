@@ -41,7 +41,11 @@ export async function GET(req: NextRequest) {
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({
         where,
-        include: { letter: true, payment: true },
+        include: {
+          letter: true,
+          payment: true,
+          evidence: { orderBy: { sortOrder: "asc" } },
+        },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -49,7 +53,44 @@ export async function GET(req: NextRequest) {
       prisma.lead.count({ where }),
     ]);
 
-    const decrypted = leads.map((lead) => decryptLeadPii(lead));
+    const { getEvidenceSignedUrl, isR2Configured } = await import(
+      "@/backend/services/storage/r2"
+    );
+    const r2Ok = isR2Configured();
+
+    const decrypted = await Promise.all(
+      leads.map(async (lead) => {
+        const base = decryptLeadPii(lead);
+        const evidence = await Promise.all(
+          (lead.evidence ?? []).map(async (item) => {
+            let url: string | undefined;
+            if (r2Ok) {
+              try {
+                url = await getEvidenceSignedUrl(item.r2Key, 3600);
+              } catch (err) {
+                console.error(
+                  "[leads] signed url:",
+                  err instanceof Error ? err.message : err
+                );
+              }
+            }
+            return {
+              id: item.id,
+              leadId: item.leadId,
+              label: item.label,
+              fileName: item.fileName,
+              mimeType: item.mimeType,
+              sizeBytes: item.sizeBytes,
+              description: item.description,
+              sortOrder: item.sortOrder,
+              createdAt: item.createdAt,
+              url,
+            };
+          })
+        );
+        return { ...base, evidence };
+      })
+    );
 
     return NextResponse.json({ leads: decrypted, total, page, limit });
   } catch (err) {

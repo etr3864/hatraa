@@ -76,6 +76,20 @@ export interface Lead {
   createdAt: string;
   letter: LetterRecord | null;
   payment: PaymentRecord | null;
+  evidence?: EvidenceRecord[];
+}
+
+export interface EvidenceRecord {
+  id: string;
+  leadId: string;
+  label: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  description: string | null;
+  sortOrder: number;
+  createdAt: string;
+  url?: string;
 }
 
 export interface LetterRecord {

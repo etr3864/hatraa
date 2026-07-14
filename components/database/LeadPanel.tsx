@@ -365,6 +365,51 @@ export function LeadPanel({ lead, token, onClose, onSaved, onDeleted }: LeadPane
                 </pre>
               </Section>
 
+              <Section title="ראיות ונספחים">
+                {(lead.evidence?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-zinc-500">לא צורפו ראיות</p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {lead.evidence!.map((item) => (
+                      <li
+                        key={item.id}
+                        className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-sm font-medium text-zinc-900">
+                            {item.label}
+                          </span>
+                          <span className="text-xs text-zinc-500 truncate">
+                            {item.fileName}
+                          </span>
+                        </div>
+                        {item.description && (
+                          <p className="text-xs text-zinc-600 mb-2">{item.description}</p>
+                        )}
+                        {item.url && item.mimeType.startsWith("image/") && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.url}
+                            alt={item.label}
+                            className="max-h-48 w-auto rounded border border-zinc-200 object-contain"
+                          />
+                        )}
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block mt-2 text-xs font-medium text-amber-800 hover:underline"
+                          >
+                            פתיחה / הורדה
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Section>
+
               <Section title="המכתב שנוצר">
                 <pre className="whitespace-pre-wrap rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 leading-relaxed font-[inherit]">
                   {lead.letter?.content || "—"}

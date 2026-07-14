@@ -99,5 +99,42 @@ export function getPdfStyles(): string {
     font-weight: 500;
     color: #0f1c28;
   }
+
+  .appendix-page {
+    page-break-before: always;
+    padding: 10mm 20mm 15mm 20mm;
+  }
+
+  .appendix-title {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #1b2b3a;
+    margin-bottom: 6px;
+  }
+
+  .appendix-meta {
+    font-size: 10pt;
+    color: #5a5f66;
+    margin-bottom: 12px;
+  }
+
+  .appendix-desc {
+    font-size: 10.5pt;
+    color: #0f1c28;
+    margin-bottom: 14px;
+  }
+
+  .appendix-image {
+    max-width: 100%;
+    max-height: 220mm;
+    object-fit: contain;
+    border: 1px solid #d8dade;
+  }
+
+  .appendix-note {
+    font-size: 10.5pt;
+    color: #5a5f66;
+    margin-top: 16px;
+  }
 `;
 }

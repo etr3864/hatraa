@@ -136,14 +136,32 @@ export async function DELETE(
       return NextResponse.json({ error: "חסר מזהה" }, { status: 400 });
     }
 
-    const existing = await prisma.lead.findUnique({ where: { id } });
+    const existing = await prisma.lead.findUnique({
+      where: { id },
+      include: { evidence: { select: { r2Key: true } } },
+    });
     if (!existing) {
       return NextResponse.json({ error: "ליד לא נמצא" }, { status: 404 });
+    }
+
+    const keys = existing.evidence.map((e) => e.r2Key);
+    if (keys.length > 0) {
+      try {
+        const { deleteEvidenceObjects, isR2Configured } = await import(
+          "@/backend/services/storage/r2"
+        );
+        if (isR2Configured()) {
+          await deleteEvidenceObjects(keys);
+        }
+      } catch (err) {
+        console.error("[leads:delete] r2:", err instanceof Error ? err.message : err);
+      }
     }
 
     await prisma.$transaction([
       prisma.payment.deleteMany({ where: { leadId: id } }),
       prisma.letter.deleteMany({ where: { leadId: id } }),
+      prisma.evidence.deleteMany({ where: { leadId: id } }),
       prisma.lead.delete({ where: { id } }),
     ]);
 

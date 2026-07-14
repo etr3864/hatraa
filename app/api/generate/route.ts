@@ -6,6 +6,7 @@ import { encryptLeadPii } from "@/backend/services/security/encryption";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
 import { VALID_CATEGORIES } from "@/lib/constants";
 import type { LetterInput, EvidenceFile, Category } from "@/lib/types";
+import { persistLeadEvidence } from "@/backend/services/storage/persist-evidence";
 
 export async function POST(req: NextRequest) {
   try {
@@ -121,6 +122,8 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    await persistLeadEvidence(lead.id, evidence);
 
     const letter = await prisma.letter.findUnique({ where: { leadId: lead.id } });
 

@@ -47,12 +47,39 @@ export async function POST(req: NextRequest) {
       signatureDataUrl = await loadSignatureDataUrl();
     }
 
+    let evidence: {
+      label: string;
+      fileName: string;
+      mimeType: string;
+      r2Key: string;
+      description: string | null;
+    }[] = [];
+
+    if (leadId && leadId !== "no-db") {
+      try {
+        const rows = await prisma.evidence.findMany({
+          where: { leadId },
+          orderBy: { sortOrder: "asc" },
+        });
+        evidence = rows.map((r) => ({
+          label: r.label,
+          fileName: r.fileName,
+          mimeType: r.mimeType,
+          r2Key: r.r2Key,
+          description: r.description,
+        }));
+      } catch (dbErr) {
+        console.error("[pdf] evidence load failed:", dbErr);
+      }
+    }
+
     const pdfBuffer = await renderPDF({
       letterInput,
       content,
       withSignature: allowSignature,
       attorneyVerified: allowSignature,
       signatureDataUrl,
+      evidence,
     });
 
     if (leadId && leadId !== "no-db") {

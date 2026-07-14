@@ -1,4 +1,5 @@
 import { buildLetterHtml } from "./template";
+import { buildEvidenceAppendicesHtml, type PdfEvidenceItem } from "./evidence-appendices";
 import type { LetterInput } from "@/lib/types";
 
 function getHebrewDate(): string {
@@ -67,10 +68,20 @@ interface RenderOptions {
   withSignature: boolean;
   attorneyVerified?: boolean;
   signatureDataUrl?: string;
+  evidence?: PdfEvidenceItem[];
 }
 
 export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
-  const { letterInput, content, withSignature, attorneyVerified, signatureDataUrl } = opts;
+  const {
+    letterInput,
+    content,
+    withSignature,
+    attorneyVerified,
+    signatureDataUrl,
+    evidence,
+  } = opts;
+
+  const evidenceHtml = await buildEvidenceAppendicesHtml(evidence ?? []);
 
   const isCompany = letterInput.senderType === "company";
   const html = buildLetterHtml({
@@ -88,6 +99,7 @@ export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
     withSignature,
     attorneyVerified: !!attorneyVerified && withSignature,
     signatureDataUrl,
+    evidenceHtml,
   });
 
   let browser;
