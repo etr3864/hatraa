@@ -28,7 +28,7 @@ export function buildPartiesHtml(opts: PartiesOptions): string {
   } = opts;
 
   const displaySender = companyName
-    ? `${escapeHtml(companyName)}${signatoryRole ? ` — ${escapeHtml(signatoryRole)}: ${escapeHtml(senderName)}` : ` — ${escapeHtml(senderName)}`}`
+    ? `${escapeHtml(companyName)}${signatoryRole ? ` - ${escapeHtml(signatoryRole)}: ${escapeHtml(senderName)}` : ` - ${escapeHtml(senderName)}`}`
     : escapeHtml(senderName);
 
   const idLine = companyNumber

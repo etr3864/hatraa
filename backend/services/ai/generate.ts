@@ -4,6 +4,7 @@ import { buildUserPrompt } from "./build-prompt";
 import { callModel } from "./call-model";
 import { sanitizeForFileName, getCurrentMonthHebrew } from "./parse-response";
 import { verifyLetter, stripLegalCitations } from "./verify";
+import { stripAiDashes } from "./strip-ai-dashes";
 
 export async function generateLetter(input: LetterInput): Promise<LetterOutput> {
   const knowledge = getKnowledge(input.category);
@@ -14,7 +15,7 @@ export async function generateLetter(input: LetterInput): Promise<LetterOutput> 
   let verification = verifyLetter(parsed.content, knowledge);
 
   if (!verification.verified) {
-    const retryNote = `הסעיפים הבאים לא קיימים ברשימת הידע ואסור להשתמש בהם: ${verification.invalidCitations.join(" | ")}. השתמש רק בסעיפים מהרשימה. אם אין סעיף מתאים — כתוב בסיס עובדתי בלבד בלי ציטוטי חוק.`;
+    const retryNote = `הסעיפים הבאים לא קיימים ברשימת הידע ואסור להשתמש בהם: ${verification.invalidCitations.join(" | ")}. השתמש רק בסעיפים מהרשימה. אם אין סעיף מתאים: כתוב בסיס עובדתי בלבד בלי ציטוטי חוק. אסור להשתמש במקף ארוך (em dash / en dash).`;
     const retryPrompt = buildUserPrompt(input, knowledge, retryNote);
     const retry = await callModel(input, retryPrompt);
     raw = retry.raw;
@@ -31,13 +32,14 @@ export async function generateLetter(input: LetterInput): Promise<LetterOutput> 
     }
   }
 
-  const fileName =
+  const fileName = stripAiDashes(
     parsed.fileName ||
-    `מכתב_התראה_${sanitizeForFileName(input.respondentName)}_${getCurrentMonthHebrew()}`;
+      `מכתב_התראה_${sanitizeForFileName(input.respondentName)}_${getCurrentMonthHebrew()}`
+  );
 
   return {
-    content: parsed.content,
-    upsellMessage: parsed.upsellMessage,
+    content: stripAiDashes(parsed.content),
+    upsellMessage: stripAiDashes(parsed.upsellMessage),
     fileName,
     knowledgeVersion: knowledge.version,
     promptSnapshot,

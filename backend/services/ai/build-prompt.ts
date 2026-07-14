@@ -4,6 +4,7 @@ import { LETTER_DEADLINE_DAYS, SIGNATURE_PRICE } from "@/lib/constants";
 import { formatKnowledgeForPrompt } from "./knowledge";
 import { getExamples, formatExamplesForPrompt } from "./examples";
 import { sanitizeInput, wrapUserInput } from "../security/sanitize";
+import { stripAiDashes } from "./strip-ai-dashes";
 
 function getToneInstruction(tone: string): string {
   const map: Record<string, string> = {
@@ -47,7 +48,7 @@ export function buildUserPrompt(
       ? `\n\nראיות שצורפו (${input.evidence.length} קבצים):\n${input.evidence
           .map(
             (e, i) =>
-              `- ראיה ${i + 1}: ${sanitizeInput(e.name)}${e.description ? ` — ${sanitizeInput(e.description)}` : ""}`
+              `- ראיה ${i + 1}: ${sanitizeInput(e.name)}${e.description ? `: ${sanitizeInput(e.description)}` : ""}`
           )
           .join("\n")}\n\nהשתמש בראיות אלו בגוף המכתב כנספחים (נספח א׳, נספח ב׳).`
       : "";
@@ -58,11 +59,11 @@ export function buildUserPrompt(
 
   const caseDetails = wrapUserInput(input.description || input.rawInput);
 
-  return `ידע משפטי (גרסה ${knowledge.version}) — מותר לצטט רק מכאן:
-${knowledgeText}
+  return `ידע משפטי (גרסה ${knowledge.version}). מותר לצטט רק מכאן:
+${stripAiDashes(knowledgeText)}
 
 דוגמאות לסגנון ומבנה:
-${examplesText}
+${stripAiDashes(examplesText)}
 
 פרטי המקרה:
 ${caseDetails}
@@ -83,8 +84,8 @@ ${input.amount ? `- סכום: ${sanitizeInput(input.amount)}` : ""}
 - מועד אחרון לתגובה: ${LETTER_DEADLINE_DAYS} ימים
 - מחיר חתימת עו"ד (לאזכור באפסייל בלבד אם רלוונטי): ${SIGNATURE_PRICE} ש"ח
 
-טון: ${toneLabel(input.tone)} — ${getToneInstruction(input.tone)}
-מטרה: ${goalLabel(input.goal)} — ${getGoalInstruction(input.goal)}
+טון: ${toneLabel(input.tone)}: ${getToneInstruction(input.tone)}
+מטרה: ${goalLabel(input.goal)}: ${getGoalInstruction(input.goal)}
 ${evidenceSection}${companySenderNote}
 ${retryNote ? `\nהנחיה מחמירה לתיקון:\n${retryNote}` : ""}
 

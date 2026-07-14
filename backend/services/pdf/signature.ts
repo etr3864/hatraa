@@ -15,7 +15,7 @@ export function buildDisplaySender(opts: {
 }): string {
   const { senderName, companyName, signatoryRole } = opts;
   return companyName
-    ? `${escapeHtml(companyName)}${signatoryRole ? ` — ${escapeHtml(signatoryRole)}: ${escapeHtml(senderName)}` : ` — ${escapeHtml(senderName)}`}`
+    ? `${escapeHtml(companyName)}${signatoryRole ? ` - ${escapeHtml(signatoryRole)}: ${escapeHtml(senderName)}` : ` - ${escapeHtml(senderName)}`}`
     : escapeHtml(senderName);
 }
 
@@ -25,7 +25,7 @@ export function buildSignatureHtml(opts: SignatureOptions): string {
   if (withSignature && signatureDataUrl) {
     return `<div class="signature-block">
         <img src="${signatureDataUrl}" alt="חתימת עורך דין" class="signature-img" />
-        <p class="signature-name">עו&quot;ד — מאומת ומאושר</p>
+        <p class="signature-name">עו&quot;ד - מאומת ומאושר</p>
        </div>`;
   }
 

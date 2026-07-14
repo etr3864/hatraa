@@ -96,11 +96,12 @@ export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
     const puppeteerModule = await import("puppeteer-core");
     const puppeteer = puppeteerModule.default;
 
-    // Full @sparticuz/chromium bin is often stripped from the Vercel bundle.
-    // chromium-min downloads the pack at runtime from this release URL.
+    // chromium-min מוריד את ה-pack ב-runtime. שם הקובץ לפי ארכיטקטורה (x64), לא .tar.br הישן.
+    // override: CHROMIUM_REMOTE_EXEC_PATH (מומלץ לארח את הקובץ ב-CDN קרוב ל-Vercel).
+    const packVersion = "148.0.0";
     const packUrl =
       process.env.CHROMIUM_REMOTE_EXEC_PATH ??
-      "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.tar.br";
+      `https://github.com/Sparticuz/chromium/releases/download/v${packVersion}/chromium-v${packVersion}-pack.x64.tar`;
 
     browser = await puppeteer.launch({
       args: chromium.args,

@@ -6,7 +6,7 @@ import type { LetterInput } from "@/lib/types";
 import fs from "fs";
 import path from "path";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const PAID_STATUSES = new Set(["completed", "mock"]);
 

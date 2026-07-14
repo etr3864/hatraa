@@ -1,8 +1,9 @@
 import { escapeHtml } from "./escape";
 import { todayFormatted } from "@/lib/utils";
+import { stripAiDashes } from "../ai/strip-ai-dashes";
 
 export function buildBodyHtml(content: string): string {
-  const paragraphs = content
+  const paragraphs = stripAiDashes(content)
     .split(/\n{2,}/)
     .filter((p) => p.trim().length > 0)
     .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`)

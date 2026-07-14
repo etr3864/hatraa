@@ -3,6 +3,7 @@ import { prisma } from "@/backend/services/db/prisma";
 import { validateAdminToken } from "@/backend/services/security/admin-auth";
 import { decryptLeadPii, encryptLeadPii } from "@/backend/services/security/encryption";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
+import { stripAiDashes } from "@/backend/services/ai/strip-ai-dashes";
 import { VALID_CATEGORIES } from "@/lib/constants";
 import type { Category } from "@/lib/types";
 
@@ -91,10 +92,10 @@ export async function PATCH(
           ...(body.letter.tone !== undefined && { tone: body.letter.tone }),
           ...(body.letter.goal !== undefined && { goal: body.letter.goal }),
           ...(body.letter.content !== undefined && {
-            content: sanitizeInput(body.letter.content),
+            content: stripAiDashes(sanitizeInput(body.letter.content)),
           }),
           ...(body.letter.fileName !== undefined && {
-            fileName: sanitizeInput(body.letter.fileName),
+            fileName: stripAiDashes(sanitizeInput(body.letter.fileName)),
           }),
         }
       : undefined;
