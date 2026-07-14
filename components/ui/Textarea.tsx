@@ -25,11 +25,12 @@ export function Textarea({ label, error, hint, className, id, ...props }: Textar
       <textarea
         id={inputId}
         className={clsx(
-          "w-full rounded-md border-[1.5px] border-[var(--color-border)]",
-          "px-3.5 py-3 text-base text-[var(--color-ink)] bg-white",
+          "w-full rounded-lg border border-[var(--color-border)]",
+          "px-4 py-3 text-base text-[var(--color-ink)]",
           "placeholder:text-[var(--color-placeholder)]",
-          "focus:outline-none focus:border-[var(--color-primary)]",
-          "transition-opacity duration-150 resize-none leading-relaxed",
+          "focus:outline-none focus:border-[var(--color-accent)]/60 focus:ring-1 focus:ring-[var(--color-accent)]/20",
+          "transition-all duration-200 resize-none",
+          "bg-[var(--color-surface)] leading-relaxed",
           error && "border-[var(--color-error)] focus:border-[var(--color-error)]",
           className
         )}

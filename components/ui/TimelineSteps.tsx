@@ -234,7 +234,7 @@ export function TimelineSteps() {
                 >
                   <span
                     className={`text-base font-bold transition-colors duration-500 ${
-                      isActive ? "text-[#C9A84C]" : "text-zinc-500"
+                      isActive ? "text-[var(--color-accent)]" : "text-[var(--color-subtle)]"
                     }`}
                   >
                     {step.number}
@@ -275,12 +275,12 @@ export function TimelineSteps() {
                   </div>
                   <h3
                     className={`text-sm font-semibold mb-1 transition-colors duration-500 ${
-                      isActive ? "text-white" : "text-zinc-500"
+                      isActive ? "text-[var(--color-ink)]" : "text-[var(--color-subtle)]"
                     }`}
                   >
                     {step.title}
                   </h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">
+                  <p className="text-xs text-[var(--color-body)] leading-relaxed whitespace-pre-line">
                     {step.description}
                   </p>
                 </div>

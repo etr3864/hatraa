@@ -32,8 +32,8 @@ export const LETTER_DEADLINE_DAYS = 14;
 
 export const MAX_RECORDING_SECONDS = 480; // 8 דקות
 
-export const LOADER_MIN_MS = 8000;
-export const LOADER_MAX_MS = 15000;
+export const LOADER_MIN_MS = 40000;
+export const LOADER_MAX_MS = 55000;
 
 export const RATE_LIMIT_PER_DAY = 10;
 
