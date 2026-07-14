@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LetterDisplay } from "@/components/result/LetterDisplay";
 import { UpsellBlock } from "@/components/result/UpsellBlock";
 import { DownloadSection } from "@/components/result/DownloadSection";
+import { AttorneyUpgradeOverlay } from "@/components/result/AttorneyUpgradeOverlay";
 import { IconCheck, IconArrowRight } from "@tabler/icons-react";
 import type { LetterInput } from "@/lib/types";
 import { attorneyShortLabel } from "@/lib/attorney";
@@ -137,12 +138,8 @@ export default function ResultPage() {
           </p>
         </div>
 
-        {isUpgrading && (
-          <div className="rounded-lg border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-5 py-4 text-sm text-[var(--color-ink)]">
-            {upgradeStep === "pay"
-              ? "מאשר תשלום..."
-              : `מנסח מחדש בשם ${attorneyShortLabel()}...`}
-          </div>
+        {isUpgrading && upgradeStep && (
+          <AttorneyUpgradeOverlay step={upgradeStep} />
         )}
 
         <LetterDisplay
