@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape";
+import { ATTORNEY } from "@/lib/attorney";
 
 interface SignatureOptions {
   withSignature: boolean;
@@ -23,9 +24,15 @@ export function buildSignatureHtml(opts: SignatureOptions): string {
   const { withSignature, signatureDataUrl, displaySender, senderPhone, senderEmail } = opts;
 
   if (withSignature && signatureDataUrl) {
+    const licenseLine = ATTORNEY.licenseNumber
+      ? `<p class="signature-name">רישיון ${escapeHtml(ATTORNEY.licenseNumber)}</p>`
+      : "";
+
     return `<div class="signature-block">
         <img src="${signatureDataUrl}" alt="חתימת עורך דין" class="signature-img" />
-        <p class="signature-name">עו&quot;ד - מאומת ומאושר</p>
+        <p class="signature-name">${escapeHtml(ATTORNEY.displayName)}</p>
+        ${licenseLine}
+        <p class="signature-name">${escapeHtml(ATTORNEY.signatureCaption)}</p>
        </div>`;
   }
 

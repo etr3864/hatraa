@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/Button";
 import { IconSignature, IconX } from "@tabler/icons-react";
 import { SIGNATURE_PRICE } from "@/lib/constants";
+import { attorneyShortLabel } from "@/lib/attorney";
 
 interface UpsellBlockProps {
   upsellMessage: string;
@@ -26,7 +27,7 @@ export function UpsellBlock({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-bold text-[var(--color-ink)] text-base">
-              חזק את המכתב שלך עם חתימת עורך דין
+              שדרג למכתב בשם {attorneyShortLabel()} + חתימה
             </h3>
             <span className="text-xs font-bold text-[var(--color-gold)] bg-[var(--color-gold)]/15 rounded-full px-2.5 py-0.5 whitespace-nowrap">
               {SIGNATURE_PRICE} ש״ח בלבד
@@ -46,7 +47,7 @@ export function UpsellBlock({
           className="flex-1"
         >
           <IconSignature size={18} />
-          הוסף חתימת עו&quot;ד בלבד {SIGNATURE_PRICE} ש&quot;ח
+          אישור עו&quot;ד + חתימה · {SIGNATURE_PRICE} ש&quot;ח
         </Button>
         <Button
           variant="ghost"
