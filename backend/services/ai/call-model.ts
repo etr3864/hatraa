@@ -1,0 +1,52 @@
+import Anthropic from "@anthropic-ai/sdk";
+import type { LetterInput } from "@/lib/types";
+import { SYSTEM_PROMPT } from "./prompts/system";
+import { parseModelJson } from "./parse-response";
+
+let client: Anthropic | null = null;
+
+function getClient(): Anthropic {
+  if (!client) {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
+    client = new Anthropic({ apiKey });
+  }
+  return client;
+}
+
+export async function callModel(
+  input: LetterInput,
+  userPrompt: string
+): Promise<{ raw: string; parsed: ReturnType<typeof parseModelJson> }> {
+  const anthropic = getClient();
+  const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
+
+  if (input.evidence && input.evidence.length > 0) {
+    for (const file of input.evidence) {
+      if (file.type.startsWith("image/")) {
+        const mediaType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+        contentBlocks.push({
+          type: "image",
+          source: { type: "base64", media_type: mediaType, data: file.base64 },
+        });
+      } else if (file.type === "application/pdf") {
+        contentBlocks.push({
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: file.base64 },
+        });
+      }
+    }
+  }
+
+  contentBlocks.push({ type: "text", text: userPrompt });
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: contentBlocks }],
+  });
+
+  const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  return { raw, parsed: parseModelJson(raw) };
+}

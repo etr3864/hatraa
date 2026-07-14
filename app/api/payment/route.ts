@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/services/db/prisma";
+import { SIGNATURE_PRICE } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { leadId: string };
+    const body = (await req.json()) as { leadId: string };
     const { leadId } = body;
 
-    if (!leadId) {
+    if (!leadId || leadId === "no-db") {
       return NextResponse.json({ error: "נדרש leadId" }, { status: 400 });
     }
 
     const existing = await prisma.payment.findUnique({ where: { leadId } });
 
-    if (existing?.status === "completed") {
+    if (existing?.status === "completed" || existing?.status === "mock") {
       return NextResponse.json({ success: true, alreadyPaid: true });
     }
 
@@ -20,11 +21,12 @@ export async function POST(req: NextRequest) {
       where: { leadId },
       create: {
         leadId,
-        amount: 50,
+        amount: SIGNATURE_PRICE,
         status: "mock",
         paidAt: new Date(),
       },
       update: {
+        amount: SIGNATURE_PRICE,
         status: "mock",
         paidAt: new Date(),
       },
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, paymentId: payment.id });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "שגיאה בעיבוד התשלום";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[payment]", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "אירעה שגיאה, נסה שוב." }, { status: 500 });
   }
 }

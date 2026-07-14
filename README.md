@@ -61,21 +61,32 @@ npm run dev
 ```
 app/                    # Next.js App Router
   page.tsx             # דף נחיתה
-  wizard/page.tsx      # Wizard 4 שלבים
+  wizard/page.tsx      # Wizard
   result/page.tsx      # דף תוצאה + אפסייל
-  database/page.tsx    # ניהול לידים
+  database/page.tsx    # ניהול לידים (מוגן בסיסמה)
   api/                 # API routes
 
-backend/services/       # לוגיקת ליבה
-  ai/extract.ts        # Gemini Flash — תמלול + חילוץ
-  ai/generate.ts       # Claude Sonnet — כתיבת מכתב
-  templates/           # 4 תבניות משפטיות
-  pdf/render.ts        # Puppeteer PDF generation
-  db/prisma.ts         # Prisma client
+backend/services/
+  ai/                  # extract, generate, verify, knowledge, examples, prompts
+  security/            # admin-auth, rate-limiter, sanitize, encryption
+  pdf/                 # Puppeteer PDF
+  db/prisma.ts
 
-components/             # React components
-lib/                    # Types, constants, utils
-prisma/schema.prisma   # DB schema
+lib/                   # Types, constants, utils
+prisma/schema.prisma
+prisma/migrations/
+```
+
+## משתני סביבה נוספים
+
+```
+ADMIN_SECRET=...       # סיסמה ל-/database ו-/api/leads
+ENCRYPTION_KEY=...     # מפתח הצפנת PII (AES-256-GCM)
+```
+
+לאחר שינוי schema:
+```bash
+npx prisma migrate deploy
 ```
 
 ---

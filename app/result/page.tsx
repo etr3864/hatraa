@@ -27,7 +27,7 @@ export default function ResultPage() {
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("letterResult");
+    const stored = localStorage.getItem("letterResult");
     if (!stored) {
       router.replace("/wizard");
       return;

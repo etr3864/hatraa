@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderPDF } from "@/backend/services/pdf/render";
 import { prisma } from "@/backend/services/db/prisma";
+import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import type { LetterInput } from "@/lib/types";
 import fs from "fs";
 import path from "path";
 
 export const maxDuration = 30;
 
+const PAID_STATUSES = new Set(["completed", "mock"]);
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as {
+    const ip = getClientIp(req.headers);
+    const rate = checkRateLimit(ip);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: "הגעת למגבלה היומית, נסה שוב מחר." },
+        { status: 429 }
+      );
+    }
+
+    const body = (await req.json()) as {
       leadId: string;
       withSignature: boolean;
       letterInput: LetterInput;
@@ -17,21 +29,32 @@ export async function POST(req: NextRequest) {
       fileName: string;
     };
 
-    const { leadId, withSignature, letterInput, content, fileName } = body;
+    const { leadId, withSignature: requestedSignature, letterInput, content, fileName } = body;
+
+    let allowSignature = false;
+    if (requestedSignature && leadId && leadId !== "no-db") {
+      try {
+        const payment = await prisma.payment.findUnique({ where: { leadId } });
+        allowSignature = !!payment && PAID_STATUSES.has(payment.status);
+      } catch (dbErr) {
+        console.error("[pdf] payment check failed:", dbErr);
+        allowSignature = false;
+      }
+    }
 
     let signatureDataUrl: string | undefined;
-    if (withSignature) {
+    if (allowSignature) {
       signatureDataUrl = await loadSignatureDataUrl();
     }
 
     const pdfBuffer = await renderPDF({
       letterInput,
       content,
-      withSignature,
+      withSignature: allowSignature,
       signatureDataUrl,
     });
 
-    if (leadId) {
+    if (leadId && leadId !== "no-db") {
       try {
         await prisma.letter.updateMany({
           where: { leadId },
@@ -54,8 +77,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[pdf] Error:", err instanceof Error ? err.stack || err.message : err);
-    const message = err instanceof Error ? err.message : "שגיאה בייצור PDF";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "שגיאה בייצור PDF" }, { status: 500 });
   }
 }
 

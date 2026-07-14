@@ -3,11 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { Tag } from "@/components/ui/Tag";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { IconDownload, IconRefresh } from "@tabler/icons-react";
+import { IconDownload, IconRefresh, IconLock } from "@tabler/icons-react";
 import type { Lead, Category } from "@/lib/types";
 import { CATEGORIES, TONES, GOALS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/utils";
+
+const ADMIN_TOKEN_KEY = "adminToken";
 
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "כל הקטגוריות" },
@@ -15,16 +18,25 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export default function DatabasePage() {
+  const [token, setToken] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [authError, setAuthError] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [category, setCategory] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
 
-  const fetchLeads = useCallback(async () => {
+  useEffect(() => {
+    const saved = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (saved) setToken(saved);
+  }, []);
+
+  const fetchLeads = useCallback(async (authToken: string) => {
     setIsLoading(true);
+    setAuthError("");
     try {
       const params = new URLSearchParams();
       if (category) params.set("category", category);
@@ -33,20 +45,56 @@ export default function DatabasePage() {
       params.set("page", String(page));
       params.set("limit", "50");
 
-      const res = await fetch(`/api/leads?${params}`);
+      const res = await fetch(`/api/leads?${params}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (res.status === 401) {
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        setToken(null);
+        setAuthError("סיסמה שגויה או פג תוקף");
+        setLeads([]);
+        return;
+      }
+
       const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || "שגיאה בטעינה");
+        setLeads([]);
+        return;
+      }
+
       setLeads(data.leads ?? []);
       setTotal(data.total ?? 0);
     } catch {
       setLeads([]);
+      setAuthError("שגיאה בטעינת הלידים");
     } finally {
       setIsLoading(false);
     }
   }, [category, from, to, page]);
 
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    if (token) fetchLeads(token);
+  }, [token, fetchLeads]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = passwordInput.trim();
+    if (!value) {
+      setAuthError("נא להזין סיסמה");
+      return;
+    }
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, value);
+    setToken(value);
+    setPasswordInput("");
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    setToken(null);
+    setLeads([]);
+  };
 
   const exportCSV = () => {
     const headers = ["תאריך", "שם", "טלפון", "מייל", "קטגוריה", "נמען", "סכום", "טון", "מטרה", "שילם"];
@@ -76,6 +124,38 @@ export default function DatabasePage() {
     URL.revokeObjectURL(url);
   };
 
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-[var(--color-surface)] flex items-center justify-center px-4" dir="rtl">
+        <form
+          onSubmit={handleLogin}
+          className="w-full max-w-sm bg-white border border-[var(--color-border)] rounded-lg p-6 flex flex-col gap-4"
+        >
+          <div className="flex items-center gap-2 text-[var(--color-ink)]">
+            <IconLock size={20} stroke={1.5} />
+            <h1 className="text-lg font-bold">כניסת מנהל</h1>
+          </div>
+          <p className="text-sm text-[var(--color-subtle)]">
+            הזן את סיסמת האדמין כדי לצפות בלידים.
+          </p>
+          <Input
+            type="password"
+            label="סיסמה"
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            autoFocus
+          />
+          {authError && (
+            <p className="text-sm text-[var(--color-error)]">{authError}</p>
+          )}
+          <Button type="submit" variant="primary" fullWidth>
+            כניסה
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-surface)]" dir="rtl">
       <header className="border-b border-[var(--color-border)] bg-white px-4 py-4">
@@ -85,11 +165,14 @@ export default function DatabasePage() {
             <p className="text-sm text-[var(--color-subtle)]">{total} סה&quot;כ</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={fetchLeads} className="px-3 py-2 text-sm">
-              <IconRefresh size={16} />
+            <Button variant="ghost" onClick={handleLogout} className="px-3 py-2 text-sm">
+              יציאה
+            </Button>
+            <Button variant="ghost" onClick={() => token && fetchLeads(token)} className="px-3 py-2 text-sm">
+              <IconRefresh size={16} stroke={1.5} />
             </Button>
             <Button variant="primary" onClick={exportCSV} className="px-4 py-2 text-sm">
-              <IconDownload size={16} />
+              <IconDownload size={16} stroke={1.5} />
               ייצא CSV
             </Button>
           </div>
@@ -97,30 +180,43 @@ export default function DatabasePage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-4">
+        {authError && (
+          <p className="text-sm text-[var(--color-error)]">{authError}</p>
+        )}
+
         <div className="flex flex-wrap gap-3 p-4 bg-white rounded-lg border border-[var(--color-border)]">
           <select
             value={category}
-            onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-            className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-md border-[1.5px] border-[var(--color-border)] px-3 py-2 text-sm bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
           >
             {CATEGORY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
 
           <input
             type="date"
             value={from}
-            onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-            className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
-            placeholder="מתאריך"
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-md border-[1.5px] border-[var(--color-border)] px-3 py-2 text-sm bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
           />
           <input
             type="date"
             value={to}
-            onChange={(e) => { setTo(e.target.value); setPage(1); }}
-            className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
-            placeholder="עד תאריך"
+            onChange={(e) => {
+              setTo(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-md border-[1.5px] border-[var(--color-border)] px-3 py-2 text-sm bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
           />
         </div>
 
@@ -151,9 +247,7 @@ export default function DatabasePage() {
                       ))}
                     </tr>
                   ))
-                : leads.map((lead) => (
-                    <LeadRow key={lead.id} lead={lead} />
-                  ))}
+                : leads.map((lead) => <LeadRow key={lead.id} lead={lead} />)}
               {!isLoading && leads.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-[var(--color-subtle)]">
@@ -198,7 +292,7 @@ function LeadRow({ lead }: { lead: Lead }) {
     lead.payment?.status === "completed" || lead.payment?.status === "mock";
 
   return (
-    <tr className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-colors">
+    <tr className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-opacity">
       <td className="px-4 py-3 whitespace-nowrap text-[var(--color-subtle)]">
         {new Date(lead.createdAt).toLocaleDateString("he-IL")}
       </td>
@@ -217,7 +311,9 @@ function LeadRow({ lead }: { lead: Lead }) {
         {lead.letter?.amount ?? "—"}
       </td>
       <td className="px-4 py-3 text-[var(--color-body)]">
-        {lead.letter ? TONES[lead.letter.tone as keyof typeof TONES]?.label ?? lead.letter.tone : "—"}
+        {lead.letter
+          ? TONES[lead.letter.tone as keyof typeof TONES]?.label ?? lead.letter.tone
+          : "—"}
       </td>
       <td className="px-4 py-3">
         <Tag variant={paid ? "status-success" : "status-pending"}>

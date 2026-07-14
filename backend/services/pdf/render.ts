@@ -71,14 +71,19 @@ interface RenderOptions {
 export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
   const { letterInput, content, withSignature, signatureDataUrl } = opts;
 
+  const isCompany = letterInput.senderType === "company";
   const html = buildLetterHtml({
     content,
     senderName: letterInput.senderName,
-    senderAddress: `${letterInput.senderAddress}`,
+    senderAddress: letterInput.senderAddress,
     senderPhone: letterInput.senderPhone,
     senderEmail: letterInput.senderEmail,
     senderIdNumber: letterInput.senderIdNumber,
+    companyName: isCompany ? letterInput.companyName : undefined,
+    companyNumber: isCompany ? letterInput.companyNumber : undefined,
+    signatoryRole: isCompany ? letterInput.signatoryRole : undefined,
     respondentName: letterInput.respondentName,
+    respondentAddress: letterInput.respondentAddress,
     withSignature,
     signatureDataUrl,
   });

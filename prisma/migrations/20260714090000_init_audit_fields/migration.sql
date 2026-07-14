@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Letter" ADD COLUMN IF NOT EXISTS "knowledgeVersion" TEXT;
+ALTER TABLE "Letter" ADD COLUMN IF NOT EXISTS "promptSnapshot" TEXT;
+ALTER TABLE "Letter" ADD COLUMN IF NOT EXISTS "modelResponse" TEXT;
+ALTER TABLE "Letter" ADD COLUMN IF NOT EXISTS "verified" BOOLEAN NOT NULL DEFAULT false;

@@ -240,7 +240,7 @@ export default function WizardPage() {
           throw new Error(result.error || "שגיאה בייצור המכתב");
         }
 
-        sessionStorage.setItem(
+        localStorage.setItem(
           "letterResult",
           JSON.stringify({
             ...result,

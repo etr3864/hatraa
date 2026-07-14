@@ -13,13 +13,9 @@ export function Card({ children, className, onClick, selected, hoverable }: Card
     <div
       onClick={onClick}
       className={clsx(
-        "rounded-xl border p-6 transition-all duration-200",
-        "bg-[var(--color-surface)]",
-        selected
-          ? "border-[var(--color-accent)] glow-accent"
-          : "border-[var(--color-border)]",
-        (hoverable || onClick) &&
-          "cursor-pointer hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-elevated)]",
+        "rounded-lg border-[0.5px] border-[var(--color-muted)] bg-white p-6 transition-opacity duration-150",
+        selected && "border-[var(--color-primary)]",
+        (hoverable || onClick) && "cursor-pointer hover:opacity-85",
         className
       )}
     >

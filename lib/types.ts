@@ -1,4 +1,4 @@
-export type Category = "consumer" | "employment" | "rental" | "tort";
+export type Category = "consumer" | "banking" | "employment" | "rental" | "tort";
 export type Tone = "firm" | "businesslike" | "conciliatory" | "threatening";
 export type Goal = "compensation" | "fix" | "apology" | "intimidate";
 export type PaymentStatus = "pending" | "completed" | "mock";
@@ -60,6 +60,10 @@ export interface LetterOutput {
   content: string;
   upsellMessage: string;
   fileName: string;
+  knowledgeVersion: string;
+  promptSnapshot: string;
+  modelResponse: string;
+  verified: boolean;
 }
 
 export interface Lead {
@@ -89,6 +93,10 @@ export interface LetterRecord {
   content: string;
   upsellMessage: string;
   fileName: string;
+  knowledgeVersion: string | null;
+  promptSnapshot: string | null;
+  modelResponse: string | null;
+  verified: boolean;
   createdAt: string;
 }
 
@@ -111,4 +119,21 @@ export interface EvidenceFile {
 export interface ApiError {
   error: string;
   code?: string;
+}
+
+export interface StatuteEntry {
+  law: string;
+  sections: string[];
+  appliesWhen: string;
+}
+
+export interface KnowledgeFile {
+  version: string;
+  updatedAt: string;
+  statutes: StatuteEntry[];
+}
+
+export interface VerificationResult {
+  verified: boolean;
+  invalidCitations: string[];
 }

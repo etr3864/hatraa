@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/services/db/prisma";
+import { validateAdminToken } from "@/backend/services/security/admin-auth";
+import { decryptLeadPii } from "@/backend/services/security/encryption";
 import type { Category } from "@/lib/types";
+import { VALID_CATEGORIES } from "@/lib/constants";
 
 export async function GET(req: NextRequest) {
   try {
+    if (!validateAdminToken(req)) {
+      return NextResponse.json({ error: "אין הרשאה" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
-    const category = searchParams.get("category") as Category | null;
+    const categoryParam = searchParams.get("category");
+    const category =
+      categoryParam && VALID_CATEGORIES.includes(categoryParam as Category)
+        ? (categoryParam as Category)
+        : null;
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const page = parseInt(searchParams.get("page") ?? "1", 10);
@@ -37,9 +48,11 @@ export async function GET(req: NextRequest) {
       prisma.lead.count({ where }),
     ]);
 
-    return NextResponse.json({ leads, total, page, limit });
+    const decrypted = leads.map((lead) => decryptLeadPii(lead));
+
+    return NextResponse.json({ leads: decrypted, total, page, limit });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "שגיאה בטעינת הלידים";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[leads]", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "שגיאה בטעינת הלידים" }, { status: 500 });
   }
 }

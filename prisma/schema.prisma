@@ -40,6 +40,11 @@ model Letter {
   upsellMessage     String
   fileName          String
 
+  knowledgeVersion  String?
+  promptSnapshot    String?
+  modelResponse     String?
+  verified          Boolean  @default(false)
+
   createdAt         DateTime @default(now())
 }
 

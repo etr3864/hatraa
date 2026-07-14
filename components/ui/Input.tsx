@@ -25,13 +25,12 @@ export function Input({ label, error, hint, className, id, ...props }: InputProp
       <input
         id={inputId}
         className={clsx(
-          "w-full rounded-lg border border-[var(--color-border)]",
-          "px-4 py-3 text-base text-[var(--color-ink)]",
+          "w-full rounded-md border-[1.5px] border-[var(--color-border)]",
+          "px-3.5 py-3 text-base text-[var(--color-ink)] bg-white",
           "placeholder:text-[var(--color-placeholder)]",
-          "focus:outline-none focus:border-[var(--color-accent)]/60 focus:ring-1 focus:ring-[var(--color-accent)]/20",
-          "transition-all duration-200",
-          "bg-[var(--color-surface)]",
-          error && "border-[var(--color-error)] focus:border-[var(--color-error)] focus:ring-[var(--color-error)]/20",
+          "focus:outline-none focus:border-[var(--color-primary)]",
+          "transition-opacity duration-150",
+          error && "border-[var(--color-error)] focus:border-[var(--color-error)]",
           className
         )}
         {...props}
