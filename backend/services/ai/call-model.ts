@@ -48,13 +48,31 @@ export async function callModel(
 
   contentBlocks.push({ type: "text", text: userPrompt });
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: contentBlocks }],
-  });
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: contentBlocks }],
+    });
 
-  const raw = message.content[0].type === "text" ? message.content[0].text : "";
-  return { raw, parsed: parseModelJson(raw) };
+    const raw = message.content[0].type === "text" ? message.content[0].text : "";
+    return { raw, parsed: parseModelJson(raw) };
+  } catch (err) {
+    throw new Error(mapAnthropicClientError(err));
+  }
+}
+
+function mapAnthropicClientError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/quota has been exceeded|spending limit|credit|billing|insufficient/i.test(message)) {
+    return "נגמרה מכסת השימוש בשירות ייצור המכתבים. נסה שוב מאוחר יותר, או בדוק את חשבון Anthropic.";
+  }
+  if (/rate.?limit|too many requests|429/i.test(message)) {
+    return "יותר מדי בקשות ברגע זה. המתן כדקה ונסה שוב.";
+  }
+  if (/request.?too.?large|413|image|media.?type|expected pattern/i.test(message)) {
+    return "הראיות כבדות מדי או בפורמט לא נתמך. נסה פחות קבצים או תמונות קטנות יותר.";
+  }
+  return "שגיאה בייצור המכתב. אנא נסה שוב.";
 }

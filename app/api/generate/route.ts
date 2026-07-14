@@ -137,13 +137,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[generate]", err instanceof Error ? err.message : err);
     const message = err instanceof Error ? err.message : "אירעה שגיאה, נסה שוב.";
-    const isUserFacing =
-      message.includes("שגיאה") ||
-      message.includes("אנא") ||
-      message.includes("נסה") ||
-      message.includes("חסרים");
+    const isHebrew = /[\u0590-\u05FF]/.test(message);
     return NextResponse.json(
-      { error: isUserFacing ? message : "אירעה שגיאה, נסה שוב." },
+      { error: isHebrew ? message : "אירעה שגיאה, נסה שוב." },
       { status: 500 }
     );
   }
