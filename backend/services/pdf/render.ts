@@ -91,15 +91,20 @@ export async function renderPDF(opts: RenderOptions): Promise<Buffer> {
   let browser;
 
   if (process.env.VERCEL) {
-    const chromiumModule = await import("@sparticuz/chromium");
+    const chromiumModule = await import("@sparticuz/chromium-min");
     const chromium = chromiumModule.default;
     const puppeteerModule = await import("puppeteer-core");
     const puppeteer = puppeteerModule.default;
 
-    const executablePath = await chromium.executablePath();
+    // Full @sparticuz/chromium bin is often stripped from the Vercel bundle.
+    // chromium-min downloads the pack at runtime from this release URL.
+    const packUrl =
+      process.env.CHROMIUM_REMOTE_EXEC_PATH ??
+      "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.tar.br";
+
     browser = await puppeteer.launch({
       args: chromium.args,
-      executablePath,
+      executablePath: await chromium.executablePath(packUrl),
       headless: true,
     });
   } else {
