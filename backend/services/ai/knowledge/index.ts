@@ -4,6 +4,8 @@ import { bankingLawKnowledge } from "./banking-law";
 import { employmentLawKnowledge } from "./employment-law";
 import { rentalLawKnowledge } from "./rental-law";
 import { tortLawKnowledge } from "./tort-law";
+import { neighborsLawKnowledge } from "./neighbors-law";
+import { authoritiesLawKnowledge } from "./authorities";
 
 const KNOWLEDGE_BY_CATEGORY: Record<Category, KnowledgeFile> = {
   consumer: consumerLawKnowledge,
@@ -11,6 +13,8 @@ const KNOWLEDGE_BY_CATEGORY: Record<Category, KnowledgeFile> = {
   employment: employmentLawKnowledge,
   rental: rentalLawKnowledge,
   tort: tortLawKnowledge,
+  neighbors: neighborsLawKnowledge,
+  authorities: authoritiesLawKnowledge,
 };
 
 export function getKnowledge(category: Category): KnowledgeFile {

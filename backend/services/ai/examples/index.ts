@@ -4,6 +4,8 @@ import { bankingExamples } from "./banking";
 import { employmentExamples } from "./employment";
 import { rentalExamples } from "./rental";
 import { tortExamples } from "./tort";
+import { neighborsExamples } from "./neighbors";
+import { authoritiesExamples } from "./authorities";
 
 const EXAMPLES_BY_CATEGORY: Record<Category, readonly string[]> = {
   consumer: consumerExamples,
@@ -11,6 +13,8 @@ const EXAMPLES_BY_CATEGORY: Record<Category, readonly string[]> = {
   employment: employmentExamples,
   rental: rentalExamples,
   tort: tortExamples,
+  neighbors: neighborsExamples,
+  authorities: authoritiesExamples,
 };
 
 export function getExamples(category: Category): readonly string[] {

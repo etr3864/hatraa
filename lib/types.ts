@@ -1,4 +1,11 @@
-export type Category = "consumer" | "banking" | "employment" | "rental" | "tort";
+export type Category =
+  | "consumer"
+  | "banking"
+  | "employment"
+  | "rental"
+  | "tort"
+  | "neighbors"
+  | "authorities";
 export type Tone = "firm" | "businesslike" | "conciliatory" | "threatening";
 export type Goal = "compensation" | "fix" | "apology" | "intimidate";
 export type PaymentStatus = "pending" | "completed" | "mock";

@@ -5,7 +5,12 @@ export const CATEGORIES: Record<Category, { label: string; description: string }
   banking: { label: "בנקים", description: "עמלות, חיובים שגויים, חשבון בנק" },
   employment: { label: "דיני עבודה", description: "פיטורים, שכר, זכויות עובד" },
   rental: { label: "שכירות", description: "פיקדון, ליקויים, פינוי" },
-  tort: { label: "נזיקין", description: "נזק לרכוש, גוף, רשלנות" },
+  tort: { label: "נזיקין", description: "נזק לרכוש, גוף, רשלנות — לא סכסוך שכנים" },
+  neighbors: { label: "שכנים", description: "רעש, חניה, נזילה, רכוש משותף, מטרדים בבניין" },
+  authorities: {
+    label: "עיריות / רשויות",
+    description: "עירייה, ארנונה, מפגעי רחוב, תכנון, מים, חשמל, ביטוח לאומי",
+  },
 };
 
 export const TONES: Record<Tone, { label: string; description: string }> = {
@@ -46,4 +51,6 @@ export const VALID_CATEGORIES: Category[] = [
   "employment",
   "rental",
   "tort",
+  "neighbors",
+  "authorities",
 ];
