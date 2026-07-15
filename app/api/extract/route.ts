@@ -3,9 +3,9 @@ import { extractContext } from "@/backend/services/ai/extract";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
 import {
-  normalizeEvidenceMime,
   isSupportedEvidenceMime,
-  shortenFileName,
+  resolveEvidencePayload,
+  mapEvidenceFormatError,
 } from "@/lib/evidence-mime";
 import type { EvidenceFile } from "@/lib/types";
 
@@ -32,28 +32,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "נדרש טקסט או הקלטה" }, { status: 400 });
     }
 
-    const sanitizedEvidence = evidence
-      ?.map((e) => {
-        const type = normalizeEvidenceMime(e.type, e.name);
-        return {
-          ...e,
-          name: shortenFileName(sanitizeInput(e.name), 120),
-          type,
-          description: e.description ? sanitizeInput(e.description) : undefined,
-        };
-      })
-      .filter((e) => isSupportedEvidenceMime(e.type) && !!e.base64);
+    const sanitizedEvidence: EvidenceFile[] | undefined = evidence
+      ? evidence.flatMap((e): EvidenceFile[] => {
+          try {
+            const prepared = resolveEvidencePayload(e.type, e.name, e.base64);
+            if (!isSupportedEvidenceMime(prepared.type) || !prepared.base64) return [];
+            return [
+              {
+                name: sanitizeInput(prepared.name),
+                type: prepared.type,
+                base64: prepared.base64,
+                description: e.description ? sanitizeInput(e.description) : undefined,
+              },
+            ];
+          } catch {
+            return [];
+          }
+        })
+      : undefined;
 
     const input =
       audio && mimeType
-        ? { base64: audio, mimeType }
+        ? { base64: audio, mimeType: mimeType.split(";")[0].trim() || mimeType }
         : sanitizeInput(text as string);
 
     const extracted = await extractContext(input, sanitizedEvidence);
 
     return NextResponse.json(extracted);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "שגיאה בחילוץ הפרטים";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: mapEvidenceFormatError(err) }, { status: 500 });
   }
 }

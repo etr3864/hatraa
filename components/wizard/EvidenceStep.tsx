@@ -9,6 +9,8 @@ import {
   shortenFileName,
   isSupportedEvidenceMime,
   SUPPORTED_EVIDENCE_MIMES,
+  resolveEvidencePayload,
+  mapUploadError,
 } from "@/lib/evidence-mime";
 
 const MAX_FILES = 8;
@@ -39,8 +41,8 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
 
       for (const file of incoming) {
         const mime = normalizeEvidenceMime(file.type, file.name);
-        if (!isSupportedEvidenceMime(mime)) {
-          setError(`סוג קובץ לא נתמך: ${shortenFileName(file.name)}. ניתן להעלות תמונות או PDF`);
+        if (!isSupportedEvidenceMime(mime) && !/\.(jpe?g|png|webp|heic|heif|pdf)$/i.test(file.name)) {
+          setError(`סוג קובץ לא נתמך: ${shortenFileName(file.name)}. ניתן להעלות JPG, PNG, WebP, HEIC או PDF`);
           return;
         }
         if (file.size > MAX_FILE_SIZE) {
@@ -49,32 +51,36 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
         }
       }
 
-      const newFiles: EvidenceFile[] = await Promise.all(
-        incoming.map(
-          (file) =>
-            new Promise<EvidenceFile>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                const result = reader.result as string;
-                const base64 = result.includes(",") ? result.split(",")[1] : result;
-                if (!base64) {
-                  reject(new Error("לא הצלחנו לקרוא את הקובץ"));
-                  return;
-                }
-                resolve({
-                  name: shortenFileName(file.name, 120),
-                  type: normalizeEvidenceMime(file.type, file.name),
-                  base64,
-                  description: "",
-                });
-              };
-              reader.onerror = () => reject(new Error("לא הצלחנו לקרוא את הקובץ"));
-              reader.readAsDataURL(file);
-            })
-        )
-      );
+      try {
+        const newFiles: EvidenceFile[] = await Promise.all(
+          incoming.map(
+            (file) =>
+              new Promise<EvidenceFile>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  try {
+                    const result = reader.result as string;
+                    const prepared = resolveEvidencePayload(file.type, file.name, result);
+                    resolve({
+                      name: prepared.name,
+                      type: prepared.type,
+                      base64: prepared.base64,
+                      description: "",
+                    });
+                  } catch (err) {
+                    reject(err instanceof Error ? err : new Error(mapUploadError(err)));
+                  }
+                };
+                reader.onerror = () => reject(new Error("לא הצלחנו לקרוא את הקובץ"));
+                reader.readAsDataURL(file);
+              })
+          )
+        );
 
-      setFiles((prev) => [...prev, ...newFiles]);
+        setFiles((prev) => [...prev, ...newFiles]);
+      } catch (err) {
+        setError(mapUploadError(err));
+      }
     },
     [files.length]
   );
@@ -164,13 +170,13 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
             גרור קבצים לכאן או לחץ לבחירה
           </p>
           <p className="text-xs text-[var(--color-subtle)] mt-1.5">
-            תמונות (JPG, PNG, WebP) או PDF, עד 10MB לקובץ, מקסימום {MAX_FILES} קבצים
+            תמונות (JPG, PNG, WebP, HEIC) או PDF, עד 10MB לקובץ, מקסימום {MAX_FILES} קבצים
           </p>
         </div>
         <input
           ref={inputRef}
           type="file"
-          accept={[...ACCEPTED_TYPES, ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"].join(",")}
+          accept={[...ACCEPTED_TYPES, ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".pdf"].join(",")}
           multiple
           className="hidden"
           onChange={(e) => {

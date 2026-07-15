@@ -4,6 +4,9 @@ import { VALID_CATEGORIES } from "@/lib/constants";
 import {
   normalizeEvidenceMime,
   isSupportedEvidenceMime,
+  cleanBase64,
+  resolveEvidencePayload,
+  mapEvidenceFormatError,
 } from "@/lib/evidence-mime";
 import {
   CATEGORY_LIST,
@@ -97,11 +100,19 @@ export async function extractContext(
 
   if (hasEvidence) {
     for (const file of evidence) {
-      const mime = normalizeEvidenceMime(file.type, file.name);
-      if (!isSupportedEvidenceMime(mime)) continue;
+      let mime = normalizeEvidenceMime(file.type, file.name);
+      let data = cleanBase64(file.base64);
+      try {
+        const prepared = resolveEvidencePayload(file.type, file.name, file.base64);
+        mime = prepared.type;
+        data = prepared.base64;
+      } catch {
+        continue;
+      }
+      if (!isSupportedEvidenceMime(mime) || !data) continue;
 
       parts.push({
-        inlineData: { mimeType: mime, data: file.base64 },
+        inlineData: { mimeType: mime, data },
       });
       if (file.description) {
         const label =
@@ -190,12 +201,5 @@ async function transcribeAudio(
 }
 
 function mapGeminiClientError(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err);
-  if (/did not match the expected pattern/i.test(message)) {
-    return "אחת מהראיות בפורמט לא נתמך או פגום. נסה לשמור מחדש כ־JPG/PNG או PDF ולהעלות שוב.";
-  }
-  if (/INVALID_ARGUMENT|unsupported|mime/i.test(message)) {
-    return "לא הצלחנו לקרוא את הראיות. ודא שקבצי התמונה/PDF תקינים ונסה שוב.";
-  }
-  return message || "שגיאה בחילוץ הפרטים";
+  return mapEvidenceFormatError(err);
 }

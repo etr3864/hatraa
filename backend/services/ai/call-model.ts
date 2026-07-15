@@ -3,6 +3,7 @@ import type { LetterInput } from "@/lib/types";
 import {
   normalizeEvidenceMime,
   isSupportedEvidenceMime,
+  cleanBase64,
 } from "@/lib/evidence-mime";
 import { SYSTEM_PROMPT } from "./prompts/system";
 import { parseModelJson } from "./parse-response";
@@ -29,19 +30,25 @@ export async function callModel(
     for (const file of input.evidence) {
       const mime = normalizeEvidenceMime(file.type, file.name);
       if (!isSupportedEvidenceMime(mime)) continue;
+      const data = cleanBase64(file.base64);
+      if (!data) continue;
 
       if (mime === "application/pdf") {
         contentBlocks.push({
           type: "document",
-          source: { type: "base64", media_type: "application/pdf", data: file.base64 },
+          source: { type: "base64", media_type: "application/pdf", data },
         });
+        continue;
+      }
+
+      if (mime === "image/heic" || mime === "image/heif") {
         continue;
       }
 
       const mediaType = mime as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
       contentBlocks.push({
         type: "image",
-        source: { type: "base64", media_type: mediaType, data: file.base64 },
+        source: { type: "base64", media_type: mediaType, data },
       });
     }
   }
