@@ -227,13 +227,24 @@ export default function DatabasePage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-4">
         {isAdminEmbedded && (
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--color-ink)]">
-              לקוחות ומכתבים
-            </h1>
-            <p className="mt-1 text-sm text-[var(--color-subtle)]">
-              {total} רשומות
-            </p>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-bold text-[var(--color-ink)]">
+                לקוחות ומכתבים
+              </h1>
+              <p className="mt-1 text-sm text-[var(--color-subtle)]">
+                {total} רשומות
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              onClick={handleExport}
+              isLoading={isExporting}
+              className="!rounded-md !px-4 !py-2 text-sm"
+            >
+              <IconDownload size={16} stroke={1.5} />
+              ייצא Excel
+            </Button>
           </div>
         )}
         {authError && (
