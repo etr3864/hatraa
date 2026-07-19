@@ -18,6 +18,7 @@ import {
   CATEGORY_JSON,
   CATEGORY_CLASSIFICATION_RULES,
 } from "./category-classification";
+import { parseLooseJson } from "./parse-json";
 import { sanitizeInput, wrapUserInput } from "../security/sanitize";
 
 const EXTRACT_PROMPT = `אתה מנתח טקסט משפטי בעברית.
@@ -161,14 +162,10 @@ export async function extractContext(
   }
 
   const raw = response.text ?? "";
-  const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error("לא הצלחנו להבין את הפרטים. נסה לפרט יותר.");
-  }
+  const parsed = parseLooseJson(
+    raw,
+    "לא הצלחנו להבין את הפרטים. נסה לפרט יותר."
+  );
 
   const category = VALID_CATEGORIES.includes(parsed.category as Category)
     ? (parsed.category as Category)

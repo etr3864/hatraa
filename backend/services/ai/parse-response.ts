@@ -1,3 +1,5 @@
+import { parseLooseJson } from "./parse-json";
+
 export function sanitizeForFileName(name: string): string {
   return name.replace(/\s+/g, "_").replace(/[^\w\u0590-\u05ff_]/g, "").slice(0, 20);
 }
@@ -16,22 +18,15 @@ export function parseModelJson(raw: string): {
   upsellMessage: string;
   fileName: string;
 } {
-  const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("שגיאה בייצור המכתב. אנא נסה שוב.");
-    parsed = JSON.parse(match[0]);
-  }
+  const parsed = parseLooseJson(raw, "שגיאה בייצור המכתב. אנא נסה שוב.");
 
   const content = typeof parsed.content === "string" ? parsed.content.trim() : "";
   if (!content) throw new Error("שגיאה בייצור המכתב. אנא נסה שוב.");
 
   return {
     content,
-    upsellMessage: typeof parsed.upsellMessage === "string" ? parsed.upsellMessage.trim() : "",
+    upsellMessage:
+      typeof parsed.upsellMessage === "string" ? parsed.upsellMessage.trim() : "",
     fileName:
       typeof parsed.fileName === "string" && parsed.fileName.trim()
         ? parsed.fileName.trim()

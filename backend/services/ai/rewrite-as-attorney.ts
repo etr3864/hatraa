@@ -7,6 +7,7 @@ import type { LetterInput } from "@/lib/types";
 import { recordGoogleUsage } from "@/backend/services/ai-usage/google-usage";
 import { ATTORNEY } from "@/lib/attorney";
 import { getKnowledge } from "./knowledge";
+import { parseLooseJson } from "./parse-json";
 import { verifyLetter } from "./verify";
 import { stripAiDashes } from "./strip-ai-dashes";
 import { sanitizeInput } from "../security/sanitize";
@@ -67,15 +68,7 @@ function buildAttorneyBlock(): string {
 }
 
 function parseRewriteJson(raw: string): string {
-  const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("שגיאה בניסוח מחדש של המכתב");
-    parsed = JSON.parse(match[0]);
-  }
+  const parsed = parseLooseJson(raw, "שגיאה בניסוח מחדש של המכתב");
   const content = typeof parsed.content === "string" ? parsed.content.trim() : "";
   if (!content) throw new Error("שגיאה בניסוח מחדש של המכתב");
   return content;
