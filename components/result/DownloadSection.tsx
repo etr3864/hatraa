@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { IconDownload, IconCheck } from "@tabler/icons-react";
+import { LetterNotSavedWarning } from "@/components/result/LetterNotSavedWarning";
 import type { LetterInput } from "@/lib/types";
 
 interface DownloadSectionProps {
@@ -52,10 +53,10 @@ export function DownloadSection({
   };
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <p className="text-sm text-[var(--color-body)] text-center max-w-md">
-        מטעמי אבטחה המכתב לא נשמר במערכת, כדאי להוריד אותו עכשיו אחרת הוא יאבד!
-      </p>
+    <div className="flex flex-col items-center gap-4 w-full">
+      <div className="w-full max-w-md">
+        <LetterNotSavedWarning />
+      </div>
       <Button
         variant={withSignature ? "gold" : "primary"}
         onClick={handleDownload}

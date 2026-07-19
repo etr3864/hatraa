@@ -7,6 +7,7 @@ import { LetterDisplay } from "@/components/result/LetterDisplay";
 import { UpsellBlock } from "@/components/result/UpsellBlock";
 import { DownloadSection } from "@/components/result/DownloadSection";
 import { AttorneyUpgradeOverlay } from "@/components/result/AttorneyUpgradeOverlay";
+import { LetterNotSavedWarning } from "@/components/result/LetterNotSavedWarning";
 import { IconCheck, IconArrowRight } from "@tabler/icons-react";
 import type { LetterInput } from "@/lib/types";
 import { attorneyShortLabel } from "@/lib/attorney";
@@ -187,12 +188,10 @@ export default function ResultPage() {
           <h1 className="text-3xl font-bold text-[var(--color-ink)] mb-3">
             המכתב שלך מוכן
           </h1>
-          <p className="text-[var(--color-body)] text-base">
+          <p className="text-[var(--color-body)] text-base mb-4">
             מכתב התראה מקצועי מוכן לשליחה אל {result.letterInput.respondentName}
           </p>
-          <p className="mt-3 text-sm text-[var(--color-subtle)]">
-            מטעמי אבטחה המכתב לא נשמר במערכת, כדאי להוריד אותו עכשיו אחרת הוא יאבד!
-          </p>
+          <LetterNotSavedWarning />
         </div>
 
         {isUpgrading && upgradeStep && (
