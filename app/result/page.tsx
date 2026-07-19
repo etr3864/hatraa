@@ -190,6 +190,9 @@ export default function ResultPage() {
           <p className="text-[var(--color-body)] text-base">
             מכתב התראה מקצועי מוכן לשליחה אל {result.letterInput.respondentName}
           </p>
+          <p className="mt-3 text-sm text-[var(--color-subtle)]">
+            מטעמי אבטחה המכתב לא נשמר במערכת, כדאי להוריד אותו עכשיו אחרת הוא יאבד!
+          </p>
         </div>
 
         {isUpgrading && upgradeStep && (

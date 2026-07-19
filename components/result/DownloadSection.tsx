@@ -53,6 +53,9 @@ export function DownloadSection({
 
   return (
     <div className="flex flex-col items-center gap-3">
+      <p className="text-sm text-[var(--color-body)] text-center max-w-md">
+        מטעמי אבטחה המכתב לא נשמר במערכת, כדאי להוריד אותו עכשיו אחרת הוא יאבד!
+      </p>
       <Button
         variant={withSignature ? "gold" : "primary"}
         onClick={handleDownload}
