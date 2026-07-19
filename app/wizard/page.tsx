@@ -1,53 +1,54 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { IconArrowRight } from "@tabler/icons-react";
-import { FreeInputStep } from "@/components/wizard/FreeInputStep";
-import { EvidenceStep } from "@/components/wizard/EvidenceStep";
-import { ConfirmStep, type ConfirmData } from "@/components/wizard/ConfirmStep";
-import { ToneStep } from "@/components/wizard/ToneStep";
-import { ContactStep, type ContactData } from "@/components/wizard/ContactStep";
-import { GeneratingLoader } from "@/components/wizard/GeneratingLoader";
-import { Button } from "@/components/ui/Button";
-import type { ExtractedData, Tone, Goal, Category, EvidenceFile } from "@/lib/types";
+import type { ConfirmData } from "@/components/wizard/ConfirmStep";
+import type { ContactData } from "@/components/wizard/ContactStep";
+import { WizardDialogs } from "@/components/wizard/WizardDialogs";
+import {
+  WizardStepContent,
+  type WizardStep,
+  type WizardViewData,
+} from "@/components/wizard/WizardStepContent";
+import type {
+  AudioInput,
+  ExtractedData,
+  Tone,
+  Goal,
+  Category,
+  EvidenceFile,
+  LetterInput,
+} from "@/lib/types";
+import { trackClientEvent } from "@/lib/analytics";
+import {
+  clearWizardEvidence,
+  rememberWizardEvidence,
+  restoreWizardEvidence,
+  runExtractionJob,
+  runLetterGenerationJob,
+} from "@/lib/wizard-jobs";
+import {
+  hasPendingProcessingJob,
+  runProcessingJob,
+} from "@/lib/processing-jobs";
+import type { LetterGenerationJobResult } from "@/backend/services/jobs/types";
 
-type Step = "input" | "evidence" | "extracting" | "confirm" | "tone" | "contact" | "generating";
-
-interface WizardData {
-  rawInput: string;
-  audioData?: { base64: string; mimeType: string };
-  evidenceFiles: EvidenceFile[];
-  extractedData: ExtractedData | null;
-  confirmData: ConfirmData | null;
-  tone: Tone | null;
-  goal: Goal | null;
-  contactData: ContactData | null;
-}
-
-const STEP_LABELS: Partial<Record<Step, string>> = {
-  input: "ספר לנו",
-  evidence: "ראיות",
-  confirm: "אשר פרטים",
-  tone: "טון ומטרה",
-  contact: "הפרטים שלך",
-};
-
-const STEP_ORDER: Step[] = ["input", "evidence", "confirm", "tone", "contact"];
+const STEP_ORDER: WizardStep[] = ["input", "evidence", "confirm", "tone", "contact"];
 
 export default function WizardPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("input");
-  const [data, setData] = useState<WizardData>({
+  const [step, setStep] = useState<WizardStep>("input");
+  const [data, setData] = useState<WizardViewData>(() => ({
     rawInput: "",
     audioData: undefined,
-    evidenceFiles: [],
+    evidenceFiles: restoreWizardEvidence(),
     extractedData: null,
     confirmData: null,
     tone: null,
     goal: null,
     contactData: null,
-  });
+  }));
   const [isExtracting, setIsExtracting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [extractError, setExtractError] = useState("");
@@ -56,8 +57,75 @@ export default function WizardPage() {
   const [showHomeDialog, setShowHomeDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [processingStage, setProcessingStage] = useState("");
 
   const stepIndex = STEP_ORDER.indexOf(step);
+
+  useEffect(() => {
+    trackClientEvent("WIZARD_STARTED");
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        if (hasPendingProcessingJob("wizard-generation")) {
+          setStep("generating");
+          setIsGenerating(true);
+          setProcessingStage("משחזר את יצירת המכתב");
+          const result = await runProcessingJob<LetterGenerationJobResult>({
+            scope: "wizard-generation",
+            type: "LETTER_GENERATION",
+            payload: {},
+            signal: controller.signal,
+            onProgress: (job) =>
+              setProcessingStage(job.progressStage ?? "יוצר את המכתב"),
+          });
+          localStorage.setItem("letterResult", JSON.stringify(result));
+          clearWizardEvidence();
+          router.push("/result");
+          return;
+        }
+
+        if (hasPendingProcessingJob("wizard-extraction")) {
+          setStep("extracting");
+          setIsExtracting(true);
+          setProcessingStage("משחזר את חילוץ הפרטים");
+          const extracted = await runProcessingJob<ExtractedData>({
+            scope: "wizard-extraction",
+            type: "EXTRACTION",
+            payload: {},
+            signal: controller.signal,
+            onProgress: (job) =>
+              setProcessingStage(job.progressStage ?? "מחלץ פרטים"),
+          });
+          setData((previous) => ({
+            ...previous,
+            rawInput: extracted.rawTranscription || previous.rawInput,
+            extractedData: extracted,
+          }));
+          setStep("confirm");
+        }
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setExtractError(
+            error instanceof Error ? error.message : "שחזור העיבוד נכשל"
+          );
+          setStep("input");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsExtracting(false);
+          setIsGenerating(false);
+        }
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [router]);
 
   const goBack = useCallback(() => {
     if (step === "evidence") {
@@ -72,6 +140,7 @@ export default function WizardPage() {
   }, [step]);
 
   const confirmReset = useCallback(() => {
+    clearWizardEvidence();
     setShowResetDialog(false);
     setData((prev) => ({
       ...prev,
@@ -92,7 +161,7 @@ export default function WizardPage() {
   }, [router]);
 
   const handleFreeInputContinue = useCallback(
-    async (rawInput: string, audioData?: { base64: string; mimeType: string }) => {
+    async (rawInput: string, audioData?: AudioInput) => {
       setData((prev) => ({
         ...prev,
         rawInput,
@@ -103,40 +172,25 @@ export default function WizardPage() {
     []
   );
 
-  const runExtraction = async (rawInput: string, audioData: { base64: string; mimeType: string } | undefined, evidenceFiles: EvidenceFile[]) => {
+  const runExtraction = async (
+    rawInput: string,
+    audioData: AudioInput | undefined,
+    evidenceFiles: EvidenceFile[]
+  ) => {
     const hasAudio = !!audioData;
     setIsAudioMode(hasAudio);
     setIsExtracting(true);
     setStep("extracting");
     setExtractError("");
+    setProcessingStage(hasAudio ? "מתמלל ומנתח" : "מנתח את הפרטים");
 
     try {
-      const body: Record<string, unknown> = audioData
-        ? { audio: audioData.base64, mimeType: audioData.mimeType }
-        : { text: rawInput };
-
-      if (evidenceFiles.length > 0) {
-        body.evidence = evidenceFiles.map((f) => ({
-          name: f.name,
-          type: f.type,
-          base64: f.base64,
-          description: f.description,
-        }));
-      }
-
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const extracted = await runExtractionJob({
+        rawInput,
+        audioData,
+        evidenceFiles,
+        onProgress: setProcessingStage,
       });
-
-      const responseJson = await res.json();
-
-      if (!res.ok || (responseJson as { error?: string }).error) {
-        throw new Error((responseJson as { error?: string }).error || "שגיאה בחילוץ");
-      }
-
-      const extracted = responseJson as ExtractedData;
 
       setData((prev) => ({
         ...prev,
@@ -155,6 +209,7 @@ export default function WizardPage() {
 
   const handleEvidenceContinue = useCallback(
     (evidenceFiles: EvidenceFile[]) => {
+      rememberWizardEvidence(evidenceFiles);
       setData((prev) => {
         const updated = { ...prev, evidenceFiles };
         runExtraction(updated.rawInput, updated.audioData, evidenceFiles);
@@ -165,6 +220,7 @@ export default function WizardPage() {
   );
 
   const handleEvidenceSkip = useCallback(() => {
+    clearWizardEvidence();
     setData((prev) => {
       const updated = { ...prev, evidenceFiles: [] };
       runExtraction(updated.rawInput, updated.audioData, []);
@@ -174,8 +230,13 @@ export default function WizardPage() {
 
   const handleConfirmContinue = useCallback((confirmData: ConfirmData) => {
     setData((prev) => ({ ...prev, confirmData }));
+    trackClientEvent("DETAILS_COMPLETED", {
+      category: confirmData.category,
+      inputMode: data.audioData ? "audio" : "text",
+      hasEvidence: data.evidenceFiles.length > 0,
+    });
     setStep("tone");
-  }, []);
+  }, [data.audioData, data.evidenceFiles.length]);
 
   const handleToneContinue = useCallback((tone: Tone, goal: Goal) => {
     setData((prev) => ({ ...prev, tone, goal }));
@@ -190,23 +251,23 @@ export default function WizardPage() {
 
       const controller = new AbortController();
       setAbortController(controller);
+      setProcessingStage("מכין את יצירת המכתב");
 
       try {
         const { confirmData, tone, goal, rawInput, extractedData, evidenceFiles } = data;
 
         const senderAddress = `${contactData.senderStreet}, ${contactData.senderCity}${contactData.senderZip ? ` ${contactData.senderZip}` : ""}`;
 
-        const payload: Record<string, unknown> = {
+        const letterInput: LetterInput = {
           category: confirmData?.category as Category,
-          respondentName: confirmData?.respondentName,
-          respondentAddress: confirmData?.respondentAddress,
-          eventDate: confirmData?.eventDate,
-          amount: confirmData?.amount,
-          description: confirmData?.description,
-          tone,
-          goal,
+          respondentName: confirmData?.respondentName || "",
+          respondentAddress: confirmData?.respondentAddress || undefined,
+          eventDate: confirmData?.eventDate || undefined,
+          amount: confirmData?.amount || undefined,
+          description: confirmData?.description || "",
+          tone: tone as Tone,
+          goal: goal as Goal,
           rawInput,
-          extractedData,
           senderType: contactData.senderType,
           senderName: contactData.senderName,
           senderAddress,
@@ -218,35 +279,19 @@ export default function WizardPage() {
           signatoryRole: contactData.signatoryRole || undefined,
         };
 
-        if (evidenceFiles.length > 0) {
-          payload.evidence = evidenceFiles.map((f) => ({
-            name: f.name,
-            type: f.type,
-            base64: f.base64,
-            description: f.description,
-          }));
-        }
-
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        const result = await runLetterGenerationJob({
+          letterInput,
+          extractedData,
+          evidenceFiles,
           signal: controller.signal,
+          onProgress: setProcessingStage,
         });
-
-        const result = await res.json();
-
-        if (!res.ok || result.error) {
-          throw new Error(result.error || "שגיאה בייצור המכתב");
-        }
 
         localStorage.setItem(
           "letterResult",
-          JSON.stringify({
-            ...result,
-            letterInput: { ...payload, senderAddress },
-          })
+          JSON.stringify(result)
         );
+        clearWizardEvidence();
 
         router.push("/result");
       } catch (err) {
@@ -265,10 +310,6 @@ export default function WizardPage() {
     },
     [data, router]
   );
-
-  const handleLoaderDone = useCallback(() => {
-    // Loader signals minimum time passed
-  }, []);
 
   const confirmCancelGeneration = useCallback(() => {
     setShowCancelDialog(false);
@@ -314,7 +355,7 @@ export default function WizardPage() {
                 onClick={() => setShowCancelDialog(true)}
                 className="text-sm text-[var(--color-error)] hover:opacity-70 transition-opacity font-medium"
               >
-                ביטול
+                הפסק להמתין
               </button>
             )}
             {step !== "generating" && step !== "extracting" && (
@@ -339,190 +380,33 @@ export default function WizardPage() {
         </div>
       )}
 
-      <main className="max-w-xl mx-auto px-6 pt-24 pb-16 min-h-screen flex flex-col justify-center">
-        {extractError && (step === "input" || step === "evidence") && (
-          <div className="mb-6 p-4 rounded-xl bg-[var(--color-error)]/10 border border-[var(--color-error)]/20 fade-in">
-            <p className="text-sm text-[var(--color-error)]">{extractError}</p>
-          </div>
-        )}
+      <WizardStepContent
+        step={step}
+        data={data}
+        error={extractError}
+        isExtracting={isExtracting}
+        isGenerating={isGenerating}
+        isAudioMode={isAudioMode}
+        processingStage={processingStage}
+        onInput={handleFreeInputContinue}
+        onEvidence={handleEvidenceContinue}
+        onSkipEvidence={handleEvidenceSkip}
+        onConfirm={handleConfirmContinue}
+        onTone={handleToneContinue}
+        onContact={handleContactContinue}
+      />
 
-        {step === "input" && (
-          <div key="input" className="wizard-step">
-            <FreeInputStep
-              onContinue={handleFreeInputContinue}
-              isProcessing={isExtracting}
-              initialText={data.rawInput || undefined}
-            />
-          </div>
-        )}
-
-        {step === "evidence" && (
-          <div key="evidence" className="wizard-step">
-            <EvidenceStep
-              initialFiles={data.evidenceFiles.length > 0 ? data.evidenceFiles : undefined}
-              onContinue={handleEvidenceContinue}
-              onSkip={handleEvidenceSkip}
-            />
-          </div>
-        )}
-
-        {step === "extracting" && (
-          <div className="flex flex-col items-center justify-center min-h-[400px] gap-8 fade-in">
-            <div className="w-12 h-12 rounded-full border-2 border-[var(--color-accent)]/20 border-t-[var(--color-accent)] animate-spin" />
-            <div className="text-center">
-              <p className="text-lg font-medium text-[var(--color-ink)] mb-2 text-reveal">
-                {isAudioMode ? "מתמלל ומנתח את ההקלטה..." : "מנתח את הפרטים..."}
-              </p>
-              <p className="text-sm text-[var(--color-subtle)]">זה לוקח כמה שניות</p>
-            </div>
-          </div>
-        )}
-
-        {step === "confirm" && data.extractedData && (
-          <div key="confirm" className="wizard-step">
-            <ConfirmStep
-              extracted={data.extractedData}
-              initialData={data.confirmData}
-              onContinue={handleConfirmContinue}
-            />
-          </div>
-        )}
-
-        {step === "tone" && (
-          <div key="tone" className="wizard-step">
-            <ToneStep
-              initialTone={data.tone}
-              initialGoal={data.goal}
-              onContinue={handleToneContinue}
-            />
-          </div>
-        )}
-
-        {step === "contact" && (
-          <div key="contact" className="wizard-step">
-            {extractError && (
-              <div className="mb-4 p-3 rounded-lg bg-[var(--color-error)]/10 border border-[var(--color-error)]/30 fade-in">
-                <p className="text-sm text-[var(--color-error)]">{extractError}</p>
-              </div>
-            )}
-            <ContactStep
-              initialData={data.contactData}
-              onContinue={handleContactContinue}
-              isLoading={isGenerating}
-            />
-          </div>
-        )}
-
-        {step === "generating" && data.confirmData && data.tone && (
-          <GeneratingLoader
-            respondentName={data.confirmData.respondentName}
-            tone={data.tone}
-            category={data.confirmData.category}
-            userQuote={data.rawInput || data.confirmData.description}
-            onMinimumElapsed={handleLoaderDone}
-          />
-        )}
-      </main>
-
-      {showResetDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowResetDialog(false)}
-          />
-          <div className="relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl max-w-sm w-full p-8 flex flex-col gap-4 scale-in">
-            <h3 className="text-lg font-bold text-[var(--color-ink)]">
-              לחזור להתחלה?
-            </h3>
-            <p className="text-sm text-[var(--color-body)] leading-relaxed">
-              חזרה לשלב הראשון תמחק את המידע שחולץ מההקלטה/הטקסט שלך.
-              תצטרך לתאר שוב את המקרה.
-            </p>
-            <div className="flex gap-3 mt-2">
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={confirmReset}
-              >
-                כן, התחל מחדש
-              </Button>
-              <Button
-                variant="ghost"
-                className="flex-1"
-                onClick={() => setShowResetDialog(false)}
-              >
-                ביטול
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showHomeDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowHomeDialog(false)}
-          />
-          <div className="relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl max-w-sm w-full p-8 flex flex-col gap-4 scale-in">
-            <h3 className="text-lg font-bold text-[var(--color-ink)]">
-              לעזוב את הויזרד?
-            </h3>
-            <p className="text-sm text-[var(--color-body)] leading-relaxed">
-              אם תחזור לדף הבית כל הנתונים שמילאת עד עכשיו יאבדו ותצטרך להתחיל מחדש.
-            </p>
-            <div className="flex gap-3 mt-2">
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={confirmGoHome}
-              >
-                כן, חזור לדף הבית
-              </Button>
-              <Button
-                variant="ghost"
-                className="flex-1"
-                onClick={() => setShowHomeDialog(false)}
-              >
-                להישאר כאן
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCancelDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowCancelDialog(false)}
-          />
-          <div className="relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl max-w-sm w-full p-8 flex flex-col gap-4 scale-in">
-            <h3 className="text-lg font-bold text-[var(--color-ink)]">
-              לבטל את יצירת המכתב?
-            </h3>
-            <p className="text-sm text-[var(--color-body)] leading-relaxed">
-              אם תבטל עכשיו, המכתב לא ייווצר. תוכל לחזור ולנסות שוב מאוחר יותר מבלי למלא את הפרטים מחדש.
-            </p>
-            <div className="flex gap-3 mt-2">
-              <Button
-                variant="ghost"
-                className="flex-1 !border-[var(--color-error)] !text-[var(--color-error)]"
-                onClick={confirmCancelGeneration}
-              >
-                כן, בטל
-              </Button>
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={() => setShowCancelDialog(false)}
-              >
-                המשך ליצור
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <WizardDialogs
+        resetOpen={showResetDialog}
+        homeOpen={showHomeDialog}
+        cancelOpen={showCancelDialog}
+        onCloseReset={() => setShowResetDialog(false)}
+        onConfirmReset={confirmReset}
+        onCloseHome={() => setShowHomeDialog(false)}
+        onConfirmHome={confirmGoHome}
+        onCloseCancel={() => setShowCancelDialog(false)}
+        onConfirmCancel={confirmCancelGeneration}
+      />
     </div>
   );
 }

@@ -8,7 +8,10 @@ import { MAX_RECORDING_SECONDS } from "@/lib/constants";
 type RecorderState = "idle" | "recording" | "processing";
 
 interface VoiceRecorderProps {
-  onAudioReady: (base64Audio: string, mimeType: string) => void;
+  onAudioReady: (
+    base64Audio: string,
+    mimeType: string
+  ) => void | Promise<void>;
   onError: (message: string) => void;
   disabled?: boolean;
 }
@@ -27,9 +30,10 @@ export function VoiceRecorder({ onAudioReady, onError, disabled }: VoiceRecorder
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setSupported(false);
-    }
+    const timeout = window.setTimeout(() => {
+      if (!navigator.mediaDevices?.getUserMedia) setSupported(false);
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   const stopAnimation = useCallback(() => {
@@ -90,9 +94,13 @@ export function VoiceRecorder({ onAudioReady, onError, disabled }: VoiceRecorder
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const reader = new FileReader();
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          onAudioReady(base64, mimeType);
+          try {
+            await onAudioReady(base64, mimeType);
+          } finally {
+            setState("idle");
+          }
         };
         reader.readAsDataURL(blob);
       };

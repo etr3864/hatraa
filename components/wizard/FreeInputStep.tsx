@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { VoiceRecorder } from "@/components/ui/VoiceRecorder";
 import { IconKeyboard, IconMicrophone } from "@tabler/icons-react";
+import type { AudioInput } from "@/lib/types";
+import { base64ToBlob, uploadFileForJob } from "@/lib/job-upload";
 
 type InputMode = "text" | "voice";
 
 interface FreeInputStepProps {
-  onContinue: (rawInput: string, audioData?: { base64: string; mimeType: string }) => void;
+  onContinue: (rawInput: string, audioData?: AudioInput) => void;
   isProcessing: boolean;
   initialText?: string;
 }
@@ -18,11 +20,28 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
   const [mode, setMode] = useState<InputMode | null>(initialText ? "text" : null);
   const [text, setText] = useState(initialText || "");
   const [voiceError, setVoiceError] = useState("");
-  const [pendingAudio, setPendingAudio] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [pendingAudio, setPendingAudio] = useState<AudioInput | null>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
 
-  const handleAudioReady = (base64: string, mimeType: string) => {
-    setPendingAudio({ base64, mimeType });
-    setMode("voice");
+  const handleAudioReady = async (base64: string, mimeType: string) => {
+    setVoiceError("");
+    setIsUploadingAudio(true);
+    try {
+      const normalizedType = mimeType.split(";")[0] || "audio/webm";
+      const storage = await uploadFileForJob({
+        body: base64ToBlob(base64, normalizedType),
+        name: "recording.webm",
+        type: normalizedType,
+      });
+      setPendingAudio({ base64, mimeType: normalizedType, storage });
+      setMode("voice");
+    } catch (error) {
+      setVoiceError(
+        error instanceof Error ? error.message : "העלאת ההקלטה נכשלה"
+      );
+    } finally {
+      setIsUploadingAudio(false);
+    }
   };
 
   const handleContinue = () => {
@@ -114,6 +133,7 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
                 setVoiceError(msg);
                 setMode("text");
               }}
+              disabled={isUploadingAudio}
             />
           )}
 
@@ -150,7 +170,7 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
           fullWidth
           onClick={handleContinue}
           disabled={!canContinue}
-          isLoading={isProcessing}
+          isLoading={isProcessing || isUploadingAudio}
           className="rounded-xl py-4"
         >
           המשך

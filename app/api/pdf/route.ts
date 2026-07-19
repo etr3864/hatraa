@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderPDF } from "@/backend/services/pdf/render";
+import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { prisma } from "@/backend/services/db/prisma";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import type { LetterInput } from "@/lib/types";
@@ -91,6 +93,16 @@ export async function POST(req: NextRequest) {
       } catch (dbErr) {
         console.error("[pdf] DB update failed:", dbErr);
       }
+    }
+
+    const sessionId = await resolveAnalyticsSessionId(req, leadId);
+    if (sessionId && leadId && leadId !== "no-db") {
+      await trackEventSafely({
+        sessionId,
+        leadId,
+        type: "PDF_DOWNLOADED",
+        metadata: { withSignature: allowSignature },
+      });
     }
 
     const encodedFileName = encodeURIComponent(`${fileName}.pdf`);

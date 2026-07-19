@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/backend/services/db/prisma";
 import { rewriteAsAttorney } from "@/backend/services/ai/rewrite-as-attorney";
+import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import type { LetterInput } from "@/lib/types";
 
@@ -42,7 +45,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await rewriteAsAttorney(content, letterInput);
+    const sessionId = await resolveAnalyticsSessionId(req, leadId);
+    const result = await rewriteAsAttorney(content, letterInput, {
+      sessionId,
+      leadId,
+      workflowId: randomUUID(),
+    });
 
     try {
       const existing = await prisma.letter.findUnique({
@@ -62,6 +70,14 @@ export async function POST(req: NextRequest) {
       }
     } catch (dbErr) {
       console.error("[attorney-rewrite] DB:", dbErr instanceof Error ? dbErr.message : dbErr);
+    }
+
+    if (sessionId) {
+      await trackEventSafely({
+        sessionId,
+        leadId,
+        type: "ATTORNEY_REWRITE_COMPLETED",
+      });
     }
 
     return NextResponse.json({

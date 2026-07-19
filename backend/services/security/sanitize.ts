@@ -1,4 +1,4 @@
-/** מנקה קלט טקסט מ-HTML / תווים מסוכנים לפני הכנסה ל-prompt */
+
 export function sanitizeInput(text: string): string {
   if (!text) return "";
 

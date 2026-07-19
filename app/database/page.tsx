@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { Tag } from "@/components/ui/Tag";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -17,6 +18,7 @@ import { CATEGORIES, TONES } from "@/lib/constants";
 import { categoryLabel } from "@/lib/utils";
 
 const ADMIN_TOKEN_KEY = "adminToken";
+const COOKIE_SESSION = "cookie-session";
 const PAGE_SIZE = 50;
 
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -25,7 +27,9 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export default function DatabasePage() {
-  const [token, setToken] = useState<string | null>(null);
+  const pathname = usePathname();
+  const isAdminEmbedded = pathname.startsWith("/admin/");
+  const [token, setToken] = useState<string | null>(COOKIE_SESSION);
   const [passwordInput, setPasswordInput] = useState("");
   const [authError, setAuthError] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -37,11 +41,6 @@ export default function DatabasePage() {
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem(ADMIN_TOKEN_KEY);
-    if (saved) setToken(saved);
-  }, []);
 
   const buildParams = useCallback(
     (opts?: { page?: number; limit?: number }) => {
@@ -62,7 +61,10 @@ export default function DatabasePage() {
       setAuthError("");
       try {
         const res = await fetch(`/api/leads?${buildParams()}`, {
-          headers: { Authorization: `Bearer ${authToken}` },
+          headers:
+            authToken === COOKIE_SESSION
+              ? undefined
+              : { Authorization: `Bearer ${authToken}` },
         });
 
         if (res.status === 401) {
@@ -93,7 +95,9 @@ export default function DatabasePage() {
   );
 
   useEffect(() => {
-    if (token) fetchLeads(token);
+    if (!token) return;
+    const timeout = window.setTimeout(() => void fetchLeads(token), 0);
+    return () => window.clearTimeout(timeout);
   }, [token, fetchLeads]);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -108,7 +112,12 @@ export default function DatabasePage() {
     setPasswordInput("");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (token === COOKIE_SESSION) {
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+      window.location.href = "/admin";
+      return;
+    }
     sessionStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken(null);
     setLeads([]);
@@ -121,7 +130,10 @@ export default function DatabasePage() {
     setAuthError("");
     try {
       const res = await fetch(`/api/leads?${buildParams({ page: 1, limit: 5000 })}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers:
+          token === COOKIE_SESSION
+            ? undefined
+            : { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {
@@ -177,7 +189,8 @@ export default function DatabasePage() {
 
   return (
     <div className="admin-crm" dir="rtl">
-      <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4">
+      {!isAdminEmbedded && (
+        <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-lg font-bold text-[var(--color-ink)]">לידים</h1>
@@ -210,8 +223,19 @@ export default function DatabasePage() {
           </div>
         </div>
       </header>
+      )}
 
       <main className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-4">
+        {isAdminEmbedded && (
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--color-ink)]">
+              לקוחות ומכתבים
+            </h1>
+            <p className="mt-1 text-sm text-[var(--color-subtle)]">
+              {total} רשומות
+            </p>
+          </div>
+        )}
         {authError && (
           <p className="text-sm text-[var(--color-error)]">{authError}</p>
         )}

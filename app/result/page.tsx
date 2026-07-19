@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LetterDisplay } from "@/components/result/LetterDisplay";
@@ -10,6 +10,12 @@ import { AttorneyUpgradeOverlay } from "@/components/result/AttorneyUpgradeOverl
 import { IconCheck, IconArrowRight } from "@tabler/icons-react";
 import type { LetterInput } from "@/lib/types";
 import { attorneyShortLabel } from "@/lib/attorney";
+import { trackClientEvent } from "@/lib/analytics";
+import {
+  hasPendingProcessingJob,
+  runProcessingJob,
+} from "@/lib/processing-jobs";
+import type { AttorneyRewriteJobResult } from "@/backend/services/jobs/types";
 
 interface LetterResult {
   leadId: string;
@@ -31,29 +37,96 @@ export default function ResultPage() {
   const [upgradeStep, setUpgradeStep] = useState<"pay" | "rewrite" | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("letterResult");
-    if (!stored) {
-      router.replace("/wizard");
-      return;
-    }
-    try {
-      const parsed = JSON.parse(stored) as LetterResult;
-      setResult(parsed);
-      if (parsed.attorneyVerified) {
-        setUpsellState("accepted");
+    const timeout = window.setTimeout(() => {
+      const stored = localStorage.getItem("letterResult");
+      if (!stored) {
+        router.replace("/wizard");
+        return;
       }
-    } catch {
-      router.replace("/wizard");
-    }
+      try {
+        const parsed = JSON.parse(stored) as LetterResult;
+        setResult(parsed);
+        if (parsed.attorneyVerified) {
+          setUpsellState("accepted");
+        }
+      } catch {
+        router.replace("/wizard");
+      }
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [router]);
 
-  const persistResult = (next: LetterResult) => {
+  const persistResult = useCallback((next: LetterResult) => {
     setResult(next);
     localStorage.setItem("letterResult", JSON.stringify(next));
-  };
+  }, []);
+
+  const runAttorneyRewrite = useCallback(async (
+    current: LetterResult,
+    signal?: AbortSignal
+  ) => {
+    const rewritten = await runProcessingJob<AttorneyRewriteJobResult>({
+      scope: `attorney-rewrite:${current.leadId}`,
+      type: "ATTORNEY_REWRITE",
+      payload: {
+        leadId: current.leadId,
+        content: current.content,
+        letterInput: current.letterInput,
+      },
+      signal,
+    });
+    persistResult({
+      ...current,
+      content: rewritten.content,
+      attorneyVerified: true,
+    });
+    setUpsellState("accepted");
+  }, [persistResult]);
+
+  useEffect(() => {
+    if (
+      !result ||
+      result.attorneyVerified ||
+      !hasPendingProcessingJob(`attorney-rewrite:${result.leadId}`)
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setIsUpgrading(true);
+      setUpgradeStep("rewrite");
+      try {
+        await runAttorneyRewrite(result, controller.signal);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          alert(
+            error instanceof Error
+              ? error.message
+              : "שחזור השכתוב נכשל. נסה שוב."
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsUpgrading(false);
+          setUpgradeStep(null);
+        }
+      }
+    }, 0);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [result, runAttorneyRewrite]);
 
   const handleAcceptUpsell = async () => {
     if (!result) return;
+    trackClientEvent("PAYMENT_STARTED", {
+      entityId: result.leadId,
+      category: result.letterInput.category,
+      senderType: result.letterInput.senderType,
+      hasEvidence: !!result.letterInput.evidence?.length,
+    });
     setIsUpgrading(true);
     setUpgradeStep("pay");
     try {
@@ -65,26 +138,7 @@ export default function ResultPage() {
       if (!payRes.ok) throw new Error("שגיאה בתשלום");
 
       setUpgradeStep("rewrite");
-      const rewriteRes = await fetch("/api/attorney-rewrite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadId: result.leadId,
-          content: result.content,
-          letterInput: result.letterInput,
-        }),
-      });
-      const data = await rewriteRes.json();
-      if (!rewriteRes.ok) {
-        throw new Error(data.error || "שגיאה בניסוח מחדש");
-      }
-
-      persistResult({
-        ...result,
-        content: data.content,
-        attorneyVerified: true,
-      });
-      setUpsellState("accepted");
+      await runAttorneyRewrite(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "שגיאה בעיבוד. נסה שוב.";
       alert(msg);

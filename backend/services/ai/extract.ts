@@ -1,5 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
+import {
+  AiCallStatus,
+  AiOperation,
+} from "@prisma/client";
 import type { ExtractedData, Category, EvidenceFile } from "@/lib/types";
+import { recordGoogleUsage } from "@/backend/services/ai-usage/google-usage";
 import { VALID_CATEGORIES } from "@/lib/constants";
 import {
   normalizeEvidenceMime,
@@ -75,7 +80,8 @@ function getClient(): GoogleGenAI {
 
 export async function extractContext(
   input: string | { base64: string; mimeType: string },
-  evidence?: EvidenceFile[]
+  evidence?: EvidenceFile[],
+  context?: { sessionId?: string | null; workflowId?: string }
 ): Promise<ExtractedData> {
   const ai = getClient();
 
@@ -85,7 +91,9 @@ export async function extractContext(
   if (typeof input === "string") {
     textToAnalyze = sanitizeInput(input);
   } else {
-    textToAnalyze = sanitizeInput(await transcribeAudio(ai, input.base64, input.mimeType));
+    textToAnalyze = sanitizeInput(
+      await transcribeAudio(ai, input.base64, input.mimeType, context)
+    );
     rawTranscription = textToAnalyze;
   }
 
@@ -127,12 +135,28 @@ export async function extractContext(
   parts.push({ text: `${prompt}\n\nטקסט לניתוח:\n${wrapUserInput(textToAnalyze)}` });
 
   let response;
+  const startedAt = Date.now();
   try {
     response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [{ role: "user", parts }],
     });
+    await recordGoogleUsage(
+      response,
+      AiOperation.EXTRACTION,
+      AiCallStatus.SUCCEEDED,
+      Date.now() - startedAt,
+      context
+    );
   } catch (err) {
+    await recordGoogleUsage(
+      undefined,
+      AiOperation.EXTRACTION,
+      AiCallStatus.FAILED,
+      Date.now() - startedAt,
+      context,
+      err
+    );
     throw new Error(mapGeminiClientError(err));
   }
 
@@ -168,14 +192,16 @@ export async function extractContext(
 async function transcribeAudio(
   ai: GoogleGenAI,
   base64: string,
-  mimeType: string
+  mimeType: string,
+  context?: { sessionId?: string | null; workflowId?: string }
 ): Promise<string> {
   const safeMime = (mimeType || "audio/webm").split(";")[0].trim() || "audio/webm";
 
   let response;
+  const startedAt = Date.now();
   try {
     response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         {
           role: "user",
@@ -193,7 +219,22 @@ async function transcribeAudio(
         },
       ],
     });
+    await recordGoogleUsage(
+      response,
+      AiOperation.TRANSCRIPTION,
+      AiCallStatus.SUCCEEDED,
+      Date.now() - startedAt,
+      context
+    );
   } catch (err) {
+    await recordGoogleUsage(
+      undefined,
+      AiOperation.TRANSCRIPTION,
+      AiCallStatus.FAILED,
+      Date.now() - startedAt,
+      context,
+      err
+    );
     throw new Error(mapGeminiClientError(err));
   }
 

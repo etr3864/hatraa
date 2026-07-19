@@ -42,7 +42,7 @@ export function AttorneyUpgradeOverlay({ step }: AttorneyUpgradeOverlayProps) {
           {subtitle}
         </p>
         <p className="mt-4 text-xs text-[var(--color-subtle)]">
-          זה יכול לקחת עד כדקה — אל תסגור את העמוד
+          אפשר לסגור את העמוד. העיבוד ימשיך ברקע ויתחדש כשתחזור.
         </p>
       </div>
     </div>

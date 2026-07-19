@@ -16,11 +16,11 @@ cp .env.local.example .env.local
 # Database — PostgreSQL מקומי או Neon free tier
 DATABASE_URL="postgresql://user:password@localhost:5432/hatraabeklik"
 
-# Google AI — Gemini Flash 2.5 (תמלול + חילוץ פרטים)
+# Google AI — Gemini 3.5 Flash (תמלול, חילוץ ושכתוב)
 # קבל מ: https://aistudio.google.com/app/apikey
 GOOGLE_AI_API_KEY="your_key_here"
 
-# Anthropic — Claude Sonnet 4.6 (כתיבת מכתב)
+# Anthropic — Claude Sonnet 5 (כתיבת מכתב)
 # קבל מ: https://console.anthropic.com/
 ANTHROPIC_API_KEY="your_key_here"
 
@@ -68,6 +68,7 @@ app/                    # Next.js App Router
 
 backend/services/
   ai/                  # extract, generate, verify, knowledge, examples, prompts
+  jobs/                # משימות רקע, ולידציה ומעבדים מודולריים
   security/            # admin-auth, rate-limiter, sanitize, encryption
   pdf/                 # Puppeteer PDF
   db/prisma.ts
@@ -82,7 +83,22 @@ prisma/migrations/
 ```
 ADMIN_SECRET=...       # סיסמה ל-/database ו-/api/leads
 ENCRYPTION_KEY=...     # מפתח הצפנת PII (AES-256-GCM)
+INNGEST_EVENT_KEY=...  # שליחת משימות רקע
+INNGEST_SIGNING_KEY=... # אימות קריאות worker
 ```
+
+### עיבוד ברקע
+
+1. צור אפליקציה ב-Inngest והגדר את endpoint כ-`/api/inngest`.
+2. הוסף את `INNGEST_EVENT_KEY` ואת `INNGEST_SIGNING_KEY`.
+3. בפיתוח מקומי הרץ לצד Next.js:
+
+```bash
+npx inngest-cli@latest dev
+```
+
+העלאות ל-R2 מתבצעות ישירות מהדפדפן באמצעות URL חתום. לכן יש להגדיר
+ב-bucket הרשאת CORS ל-`PUT` ולכותרת `Content-Type` עבור דומיין האתר.
 
 לאחר שינוי schema:
 ```bash

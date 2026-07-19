@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/services/db/prisma";
+import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { SIGNATURE_PRICE } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
@@ -12,8 +14,16 @@ export async function POST(req: NextRequest) {
     }
 
     const existing = await prisma.payment.findUnique({ where: { leadId } });
+    const sessionId = await resolveAnalyticsSessionId(req, leadId);
 
     if (existing?.status === "completed" || existing?.status === "mock") {
+      if (sessionId) {
+        await trackEventSafely({
+          sessionId,
+          leadId,
+          type: "PAYMENT_COMPLETED",
+        });
+      }
       return NextResponse.json({ success: true, alreadyPaid: true });
     }
 
@@ -31,6 +41,14 @@ export async function POST(req: NextRequest) {
         paidAt: new Date(),
       },
     });
+
+    if (sessionId) {
+      await trackEventSafely({
+        sessionId,
+        leadId,
+        type: "PAYMENT_COMPLETED",
+      });
+    }
 
     return NextResponse.json({ success: true, paymentId: payment.id });
   } catch (err) {

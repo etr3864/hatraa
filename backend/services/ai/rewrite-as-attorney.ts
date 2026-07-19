@@ -1,33 +1,43 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
+import {
+  AiCallStatus,
+  AiOperation,
+} from "@prisma/client";
 import type { LetterInput } from "@/lib/types";
+import { recordGoogleUsage } from "@/backend/services/ai-usage/google-usage";
 import { ATTORNEY } from "@/lib/attorney";
 import { getKnowledge } from "./knowledge";
 import { verifyLetter } from "./verify";
 import { stripAiDashes } from "./strip-ai-dashes";
 import { sanitizeInput } from "../security/sanitize";
 
-let client: Anthropic | null = null;
+let client: GoogleGenAI | null = null;
 
-function getClient(): Anthropic {
+function getClient(): GoogleGenAI {
   if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
-    client = new Anthropic({ apiKey });
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) throw new Error("GOOGLE_AI_API_KEY is not set");
+    client = new GoogleGenAI({ apiKey });
   }
   return client;
 }
 
-const REWRITE_SYSTEM = `אתה עורך דין ישראלי. המשימה היחידה: לשכתב מכתב התראה קיים ללשון ייצוג משפטי.
+const REWRITE_SYSTEM = `אתה עורך דין ישראלי מנוסה המתמחה בכתיבה משפטית פורמלית. המשימה היחידה: לשכתב מכתב התראה קיים ללשון ייצוג משפטי מקצועי.
 
-## חובה
-- שמור עובדות, תאריכים, סכומים, שמות, כתובות ודרישות במדויק
-- שמור ציטוטי חוק וסעיפים כמו שהם במכתב המקורי. אסור להוסיף, למחוק או לשנות סעיף/חוק/פסק דין
-- שנה רק את הקול: מגוף ראשון של הלקוח ללשון עו"ד הכותב בשם הלקוח
-- פתיח בסגנון: הנני פונה אליך בשם [שם הלקוח]...
-- החתימה בסוף המכתב היא בשם העו"ד/המשרד שסופקו, עם אזכור שהפנייה היא בשם הלקוח
-- אסור להשתמש במקף ארוך (em/en dash). רק מקף רגיל (-), פסיק או נקודתיים
-- אל תמציא פרטים שלא קיימים במכתב או בפרטי העו"ד שסופקו
-- אל תוסיף הצהרות על ייעוץ שלא במכתב המקורי
+## עקרונות שכתוב
+- הפלט חייב להיות אותו מכתב בדיוק מבחינת תוכן, עובדות, דרישות וציטוטי חוק
+- השינוי היחיד הוא הקול: מגוף ראשון של הלקוח ללשון עו"ד הכותב בשם מרשו
+- אסור להוסיף טענות, עובדות, סעיפי חוק או דרישות שלא קיימים במכתב המקורי
+- אסור למחוק או לשנות ציטוטי חוק, סעיפים, תאריכים, סכומים או שמות
+
+## סגנון מקצועי
+- לשון פורמלית-משפטית ישראלית: "הריני לפנות אליך", "מרשי", "הנדון", "בכבוד רב"
+- פתיח: "הנני פונה אליך בשם מרשי, [שם הלקוח]..."
+- משפטים ברורים, ישירים, ללא סיבוך מיותר
+- שימוש נכון במונחים משפטיים: "לאלתר", "שומר על זכויותיו", "ללא צורך בהתראה נוספת"
+- חתימה בשם העו"ד/המשרד שסופקו בלבד
+- אסור להשתמש במקף ארוך (em/en dash) - רק מקף רגיל (-), פסיק או נקודתיים
+- אסור להוסיף הצהרות על ייעוץ, המלצות או התנצלויות שלא במכתב המקורי
 
 ## פלט
 החזר JSON בלבד (ללא markdown):
@@ -71,14 +81,18 @@ function parseRewriteJson(raw: string): string {
   return content;
 }
 
-/** משכתב מכתב קיים ללשון עו״ד בשם הלקוח. לא נוגע בידע/דוגמאות של generate. */
 export async function rewriteAsAttorney(
   content: string,
-  input: LetterInput
+  input: LetterInput,
+  context: {
+    sessionId?: string | null;
+    leadId: string;
+    workflowId?: string;
+  }
 ): Promise<{ content: string; verified: boolean }> {
   const clientLabel = buildClientLabel(input);
   const knowledge = getKnowledge(input.category);
-  const anthropic = getClient();
+  const ai = getClient();
 
   const userPrompt = `פרטי העו"ד (השולח היחיד במכתב המשוכתב):
 ${buildAttorneyBlock()}
@@ -91,35 +105,27 @@ ${buildAttorneyBlock()}
 ${content}
 <<<END>>>`;
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 4096,
-    system: REWRITE_SYSTEM,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  const raw = await callRewriteModel(
+    ai,
+    userPrompt,
+    AiOperation.ATTORNEY_REWRITE,
+    context
+  );
   let rewritten = stripAiDashes(parseRewriteJson(raw));
 
   let verification = verifyLetter(rewritten, knowledge);
   if (!verification.verified) {
-    // ניסיון תיקון אחד: שמירת ציטוטים מהמקור עדיפה על strip שמוחק בסיס משפטי
-    const retry = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 4096,
-      system: REWRITE_SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: `${userPrompt}
+    const retryPrompt = `${userPrompt}
 
 תיקון חובה: הסעיפים/החוקים הבאים אינם תקינים ביחס לידע: ${verification.invalidCitations.join(" | ")}.
-החזר לשכתוב תוך שימוש רק בציטוטים שמופיעים במכתב המקורי במדויק. אסור ציטוטים חדשים.`,
-        },
-      ],
-    });
-    const retryRaw =
-      retry.content[0].type === "text" ? retry.content[0].text : "";
+החזר לשכתוב תוך שימוש רק בציטוטים שמופיעים במכתב המקורי במדויק. אסור ציטוטים חדשים.`;
+
+    const retryRaw = await callRewriteModel(
+      ai,
+      retryPrompt,
+      AiOperation.ATTORNEY_REWRITE_RETRY,
+      context
+    );
     rewritten = stripAiDashes(parseRewriteJson(retryRaw));
     verification = verifyLetter(rewritten, knowledge);
   }
@@ -128,4 +134,42 @@ ${content}
     content: rewritten,
     verified: verification.verified,
   };
+}
+
+async function callRewriteModel(
+  ai: GoogleGenAI,
+  prompt: string,
+  operation: AiOperation,
+  context: {
+    sessionId?: string | null;
+    leadId: string;
+    workflowId?: string;
+  }
+): Promise<string> {
+  const startedAt = Date.now();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { systemInstruction: REWRITE_SYSTEM },
+    });
+    await recordGoogleUsage(
+      response,
+      operation,
+      AiCallStatus.SUCCEEDED,
+      Date.now() - startedAt,
+      context
+    );
+    return response.text ?? "";
+  } catch (error) {
+    await recordGoogleUsage(
+      undefined,
+      operation,
+      AiCallStatus.FAILED,
+      Date.now() - startedAt,
+      context,
+      error
+    );
+    throw error;
+  }
 }

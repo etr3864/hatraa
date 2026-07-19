@@ -1,5 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { AiCallStatus, AiProvider } from "@prisma/client";
 import type { LetterInput } from "@/lib/types";
+import {
+  recordAiUsage,
+  type AiUsageContext,
+} from "@/backend/services/ai-usage/record-usage";
 import {
   normalizeEvidenceMime,
   isSupportedEvidenceMime,
@@ -21,7 +26,8 @@ function getClient(): Anthropic {
 
 export async function callModel(
   input: LetterInput,
-  userPrompt: string
+  userPrompt: string,
+  usageContext: AiUsageContext
 ): Promise<{ raw: string; parsed: ReturnType<typeof parseModelJson> }> {
   const anthropic = getClient();
   const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
@@ -55,19 +61,44 @@ export async function callModel(
 
   contentBlocks.push({ type: "text", text: userPrompt });
 
+  const startedAt = Date.now();
+  let message: Anthropic.Messages.Message;
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 4096,
+    message = await anthropic.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 16384,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: contentBlocks }],
     });
 
-    const raw = message.content[0].type === "text" ? message.content[0].text : "";
-    return { raw, parsed: parseModelJson(raw) };
+    await recordAiUsage({
+      ...usageContext,
+      provider: AiProvider.ANTHROPIC,
+      model: "claude-sonnet-5",
+      status: AiCallStatus.SUCCEEDED,
+      inputTokens:
+        message.usage.input_tokens +
+        (message.usage.cache_creation_input_tokens ?? 0) +
+        (message.usage.cache_read_input_tokens ?? 0),
+      outputTokens: message.usage.output_tokens,
+      cachedInputTokens: message.usage.cache_read_input_tokens ?? 0,
+      latencyMs: Date.now() - startedAt,
+    });
   } catch (err) {
+    await recordAiUsage({
+      ...usageContext,
+      provider: AiProvider.ANTHROPIC,
+      model: "claude-sonnet-5",
+      status: AiCallStatus.FAILED,
+      latencyMs: Date.now() - startedAt,
+      errorCode: err instanceof Error ? err.message : String(err),
+    });
     throw new Error(mapAnthropicClientError(err));
   }
+
+  const textBlock = message.content.find((b) => b.type === "text");
+  const raw = textBlock && "text" in textBlock ? textBlock.text : "";
+  return { raw, parsed: parseModelJson(raw) };
 }
 
 function mapAnthropicClientError(err: unknown): string {

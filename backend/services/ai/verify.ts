@@ -1,9 +1,6 @@
 import type { KnowledgeFile, VerificationResult } from "@/lib/types";
 
-/**
- * חולץ אזכורי חוק/סעיף מטקסט המכתב.
- * מכוון לציטוטים עבריים נפוצים במכתבי התראה.
- */
+
 export function extractCitations(content: string): string[] {
   const patterns = [
     /סעיף\s+[\dא-ת"'״]+(?:\([^)]+\))?\s+ל(?:חוק|פקודת|תקנות)[^.\n]{0,80}/g,
@@ -58,13 +55,12 @@ export function verifyLetter(content: string, knowledge: KnowledgeFile): Verific
   };
 }
 
-/** מסיר פסקאות שמכילות אזכורי חוק — לדרישה עובדתית בלבד */
+
 export function stripLegalCitations(content: string): string {
   const paragraphs = content.split(/\n\s*\n/);
   const kept = paragraphs.filter((p) => {
     const citations = extractCitations(p);
     if (citations.length > 0) return false;
-    // כותרת "הבסיס המשפטי" ריקה אחרי הסרה
     if (/^\s*הבסיס המשפטי\s*:?\s*$/i.test(p.trim())) return false;
     return true;
   });

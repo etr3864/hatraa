@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SiteVisitTracker } from "@/components/analytics/SiteVisitTracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +33,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[var(--color-bg)] text-[var(--color-body)]">{children}</body>
+      <body className="bg-[var(--color-bg)] text-[var(--color-body)]">
+        <SiteVisitTracker />
+        {children}
+      </body>
     </html>
   );
 }

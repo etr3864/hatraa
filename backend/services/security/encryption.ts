@@ -24,9 +24,7 @@ export function encrypt(text: string): string {
   return `${PREFIX}${payload}`;
 }
 
-/**
- * מפענח ערך. אם הערך אינו בפורמט מוצפן (לידים ישנים) — מחזיר as-is.
- */
+
 export function decrypt(value: string): string {
   if (!value) return value;
   if (!value.startsWith(PREFIX)) return value;

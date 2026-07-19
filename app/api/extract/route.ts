@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { extractContext } from "@/backend/services/ai/extract";
+import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import {
+  ensureAnalyticsSession,
+  trackEventSafely,
+} from "@/backend/services/analytics/track-event";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import { sanitizeInput } from "@/backend/services/security/sanitize";
 import {
@@ -56,7 +62,29 @@ export async function POST(req: NextRequest) {
         ? { base64: audio, mimeType: mimeType.split(";")[0].trim() || mimeType }
         : sanitizeInput(text as string);
 
-    const extracted = await extractContext(input, sanitizedEvidence);
+    const sessionId = getAnalyticsSessionId(req);
+    const inputMode = audio ? "audio" : "text";
+    if (sessionId) {
+      await ensureAnalyticsSession(sessionId, {
+        inputMode,
+        hasEvidence: !!sanitizedEvidence?.length,
+      });
+    }
+
+    const extracted = await extractContext(input, sanitizedEvidence, {
+      sessionId,
+      workflowId: randomUUID(),
+    });
+
+    if (sessionId) {
+      await ensureAnalyticsSession(sessionId, {
+        category: extracted.category,
+      });
+      await trackEventSafely({
+        sessionId,
+        type: "EXTRACTION_COMPLETED",
+      });
+    }
 
     return NextResponse.json(extracted);
   } catch (err) {

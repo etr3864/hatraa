@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { generateLetter } from "@/backend/services/ai/generate";
+import { attachAiCallsToLead } from "@/backend/services/ai-usage/record-usage";
+import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import {
+  ensureAnalyticsSession,
+  trackEventSafely,
+} from "@/backend/services/analytics/track-event";
 import { prisma } from "@/backend/services/db/prisma";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import { encryptLeadPii } from "@/backend/services/security/encryption";
@@ -47,6 +54,8 @@ export async function POST(req: NextRequest) {
       signatoryRole,
       evidence,
     } = body;
+    const sessionId = getAnalyticsSessionId(req);
+    const workflowId = randomUUID();
 
     if (!category || !respondentName || !description || !tone || !goal || !senderName || !senderEmail) {
       return NextResponse.json({ error: "חסרים פרטים נדרשים" }, { status: 400 });
@@ -78,7 +87,19 @@ export async function POST(req: NextRequest) {
       evidence: evidence || undefined,
     };
 
-    const letterOutput = await generateLetter(letterInput);
+    if (sessionId) {
+      await ensureAnalyticsSession(sessionId, {
+        inputMode: extractedData?.rawTranscription ? "audio" : "text",
+        hasEvidence: !!evidence?.length,
+        senderType: senderType || "individual",
+        category: category as Category,
+      });
+    }
+
+    const letterOutput = await generateLetter(letterInput, {
+      sessionId,
+      workflowId,
+    });
 
     const leadName =
       senderType === "company" && companyName
@@ -100,6 +121,7 @@ export async function POST(req: NextRequest) {
         address: pii.address,
         phone: pii.phone,
         email: pii.email,
+        analyticsSessionId: sessionId,
         letter: {
           create: {
             category: letterInput.category,
@@ -122,6 +144,15 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    await attachAiCallsToLead(workflowId, lead.id);
+    if (sessionId) {
+      await trackEventSafely({
+        sessionId,
+        leadId: lead.id,
+        type: "LETTER_GENERATED",
+      });
+    }
 
     await persistLeadEvidence(lead.id, evidence);
 

@@ -12,6 +12,7 @@ import {
   resolveEvidencePayload,
   mapUploadError,
 } from "@/lib/evidence-mime";
+import { uploadFileForJob } from "@/lib/job-upload";
 
 const MAX_FILES = 8;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -27,6 +28,7 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
   const [files, setFiles] = useState<EvidenceFile[]>(initialFiles ?? []);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback(
@@ -52,34 +54,24 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       }
 
       try {
+        setIsUploading(true);
         const newFiles: EvidenceFile[] = await Promise.all(
-          incoming.map(
-            (file) =>
-              new Promise<EvidenceFile>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  try {
-                    const result = reader.result as string;
-                    const prepared = resolveEvidencePayload(file.type, file.name, result);
-                    resolve({
-                      name: prepared.name,
-                      type: prepared.type,
-                      base64: prepared.base64,
-                      description: "",
-                    });
-                  } catch (err) {
-                    reject(err instanceof Error ? err : new Error(mapUploadError(err)));
-                  }
-                };
-                reader.onerror = () => reject(new Error("לא הצלחנו לקרוא את הקובץ"));
-                reader.readAsDataURL(file);
-              })
-          )
+          incoming.map(async (file) => {
+            const prepared = await readEvidenceFile(file);
+            const storage = await uploadFileForJob({
+              body: file,
+              name: prepared.name,
+              type: prepared.type,
+            });
+            return { ...prepared, storage };
+          })
         );
 
         setFiles((prev) => [...prev, ...newFiles]);
       } catch (err) {
         setError(mapUploadError(err));
+      } finally {
+        setIsUploading(false);
       }
     },
     [files.length]
@@ -120,8 +112,10 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
   };
 
   const getPreview = (file: EvidenceFile) => {
-    if (file.type.startsWith("image/")) {
+    if (file.type.startsWith("image/") && file.base64) {
       return (
+        // A local data URL preview cannot benefit from Next.js image optimization.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`data:${file.type};base64,${file.base64}`}
           alt={file.name}
@@ -232,18 +226,48 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
         <Button
           variant="primary"
           onClick={() => onContinue(files)}
-          disabled={files.length === 0}
+          disabled={files.length === 0 || isUploading}
+          isLoading={isUploading}
           className="w-full rounded-xl py-4"
         >
-          {files.length > 0 ? `המשך עם ${files.length} ראיות` : "המשך עם ראיות"}
+          {isUploading
+            ? "מעלה ראיות..."
+            : files.length > 0
+              ? `המשך עם ${files.length} ראיות`
+              : "המשך עם ראיות"}
         </Button>
         <button
           onClick={onSkip}
-          className="text-sm text-[var(--color-subtle)] hover:text-[var(--color-accent)] transition-colors text-center py-2"
+          disabled={isUploading}
+          className="text-sm text-[var(--color-subtle)] hover:text-[var(--color-accent)] transition-colors text-center py-2 disabled:opacity-50"
         >
           אין לי ראיות כרגע, המשך בלעדיהן
         </button>
       </div>
     </div>
   );
+}
+
+function readEvidenceFile(file: File): Promise<EvidenceFile> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = reader.result as string;
+        const prepared = resolveEvidencePayload(file.type, file.name, result);
+        resolve({
+          name: prepared.name,
+          type: prepared.type,
+          base64: prepared.base64,
+          description: "",
+        });
+      } catch (error) {
+        reject(
+          error instanceof Error ? error : new Error(mapUploadError(error))
+        );
+      }
+    };
+    reader.onerror = () => reject(new Error("לא הצלחנו לקרוא את הקובץ"));
+    reader.readAsDataURL(file);
+  });
 }

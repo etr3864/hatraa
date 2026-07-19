@@ -135,6 +135,21 @@ export interface EvidenceFile {
   type: string;
   base64: string;
   description?: string;
+  storage?: StoredFileReference;
+}
+
+export interface StoredFileReference {
+  key: string;
+  name: string;
+  type: string;
+  sizeBytes: number;
+  description?: string;
+}
+
+export interface AudioInput {
+  base64: string;
+  mimeType: string;
+  storage?: StoredFileReference;
 }
 
 export interface ApiError {

@@ -5,6 +5,7 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 function requireEnv(name: string): string {
@@ -36,6 +37,33 @@ function bucket(): string {
 export function buildEvidenceKey(leadId: string, fileName: string, index: number): string {
   const safe = fileName.replace(/[^\w.\u0590-\u05ff-]+/g, "_").slice(0, 80);
   return `leads/${leadId}/${index}-${Date.now()}-${safe}`;
+}
+
+export function buildTemporaryJobKey(
+  sessionId: string,
+  fileName: string
+): string {
+  const safeSession = sessionId.replace(/[^a-z0-9-]/gi, "");
+  const safeName = fileName
+    .replace(/[^\w.\u0590-\u05ff-]+/g, "_")
+    .slice(0, 80);
+  return `jobs/${safeSession}/${randomUUID()}-${safeName}`;
+}
+
+export async function createTemporaryUploadUrl(input: {
+  key: string;
+  contentType: string;
+  expiresIn?: number;
+}): Promise<string> {
+  return getSignedUrl(
+    getClient(),
+    new PutObjectCommand({
+      Bucket: bucket(),
+      Key: input.key,
+      ContentType: input.contentType,
+    }),
+    { expiresIn: input.expiresIn ?? 600 }
+  );
 }
 
 export async function uploadEvidenceObject(opts: {

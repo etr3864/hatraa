@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
 
-// Next.js uses .env.local; Prisma defaults to .env — load both (local wins)
+
 config({ path: ".env" });
 config({ path: ".env.local", override: true });
 
