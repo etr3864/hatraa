@@ -48,6 +48,40 @@ export async function setJobQueueEvent(
   });
 }
 
+const STALE_PROCESSING_MS = 3 * 60 * 1000;
+
+export async function claimJobForProcessing(
+  jobId: string
+): Promise<ProcessingJob | null> {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - STALE_PROCESSING_MS);
+
+  return prisma.$transaction(async (tx) => {
+    const job = await tx.processingJob.findUnique({ where: { id: jobId } });
+    if (!job || job.status === ProcessingJobStatus.SUCCEEDED) return null;
+
+    if (
+      job.status === ProcessingJobStatus.PROCESSING &&
+      job.startedAt &&
+      job.startedAt > staleBefore
+    ) {
+      return null;
+    }
+
+    return tx.processingJob.update({
+      where: { id: jobId },
+      data: {
+        status: ProcessingJobStatus.PROCESSING,
+        startedAt: now,
+        attempts: { increment: 1 },
+        progressStage: "מתחיל עיבוד",
+        progress: 10,
+        errorMessage: null,
+      },
+    });
+  });
+}
+
 export async function markJobProcessing(
   jobId: string,
   stage: string,

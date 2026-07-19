@@ -29,10 +29,11 @@ export function sanitizeStoredFile(
 ): StoredFileReference {
   const item = value as Partial<StoredFileReference> | null;
   const sizeBytes = item?.sizeBytes;
+  const safeSession = sessionId.replace(/[^a-z0-9-]/gi, "");
   if (
     !item ||
     typeof item.key !== "string" ||
-    !item.key.startsWith(`jobs/${sessionId}/`) ||
+    !item.key.startsWith(`jobs/${safeSession}/`) ||
     typeof item.name !== "string" ||
     typeof item.type !== "string" ||
     typeof sizeBytes !== "number" ||

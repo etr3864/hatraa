@@ -89,16 +89,15 @@ INNGEST_SIGNING_KEY=... # אימות קריאות worker
 
 ### עיבוד ברקע
 
-1. צור אפליקציה ב-Inngest והגדר את endpoint כ-`/api/inngest`.
-2. הוסף את `INNGEST_EVENT_KEY` ואת `INNGEST_SIGNING_KEY`.
-3. בפיתוח מקומי הרץ לצד Next.js:
+העיבוד רץ מיד אחרי יצירת המשימה דרך `after()` של Next.js, כך שה־wizard
+עובד גם בלי Inngest. Inngest הוא שכבת עמידות/retries אופציונלית:
 
-```bash
-npx inngest-cli@latest dev
-```
+1. הוסף `INNGEST_EVENT_KEY` ו־`INNGEST_SIGNING_KEY` ב־Vercel.
+2. סנכרן את ה־App ל־endpoint: `https://YOUR_DOMAIN/api/inngest`.
+3. בפיתוח מקומי אפשר גם: `npx inngest-cli@latest dev`
 
-העלאות ל-R2 מתבצעות ישירות מהדפדפן באמצעות URL חתום. לכן יש להגדיר
-ב-bucket הרשאת CORS ל-`PUT` ולכותרת `Content-Type` עבור דומיין האתר.
+העלאות זמניות ל-R2 עוברות דרך `/api/jobs/uploads` בשרת.
+אם `DATABASE_URL` מגיע מ-Neon עם `sslmode=require`, הקוד מנרמל אוטומטית ל-`verify-full`.
 
 לאחר שינוי schema:
 ```bash

@@ -1,12 +1,9 @@
-import {
-  ProcessingJobStatus,
-  ProcessingJobType,
-} from "@prisma/client";
+import { ProcessingJobType, type ProcessingJob } from "@prisma/client";
 import { decryptJobPayload } from "./payload";
 import {
+  claimJobForProcessing,
   completeJob,
   getJobInput,
-  markJobProcessing,
   updateJobProgress,
 } from "./repository";
 import type {
@@ -20,8 +17,10 @@ import { processLetterGeneration } from "./processors/generate-letter";
 import { processAttorneyRewrite } from "./processors/rewrite-attorney";
 
 export async function executeProcessingJob(jobId: string): Promise<void> {
+  const claimed = await claimJobForProcessing(jobId);
+  if (!claimed) return;
+
   const { job, input } = await getJobInput(jobId);
-  if (job.status === ProcessingJobStatus.SUCCEEDED) return;
 
   if (job.encryptedResult) {
     const result = decryptJobPayload<ProcessingJobResult>(job.encryptedResult);
@@ -29,31 +28,26 @@ export async function executeProcessingJob(jobId: string): Promise<void> {
     return;
   }
 
-  await markJobProcessing(job.id, "מתחיל עיבוד", 10);
   const onProgress = (stage: string, progress: number) =>
     updateJobProgress(job.id, stage, progress);
 
-  const result = await runProcessor(job.type, job, input, onProgress);
+  const result = await runProcessor(job.type, claimed, input, onProgress);
   const leadId =
     "leadId" in result && typeof result.leadId === "string"
       ? result.leadId
-      : job.leadId ?? undefined;
+      : claimed.leadId ?? undefined;
   await completeJob(job.id, result, leadId);
 }
 
 async function runProcessor(
   type: ProcessingJobType,
-  job: Awaited<ReturnType<typeof getJobInput>>["job"],
+  job: ProcessingJob,
   input: Awaited<ReturnType<typeof getJobInput>>["input"],
   onProgress: (stage: string, progress: number) => Promise<void>
 ): Promise<ProcessingJobResult> {
   switch (type) {
     case ProcessingJobType.EXTRACTION:
-      return processExtraction(
-        job,
-        input as ExtractionJobInput,
-        onProgress
-      );
+      return processExtraction(job, input as ExtractionJobInput, onProgress);
     case ProcessingJobType.LETTER_GENERATION:
       return processLetterGeneration(
         job,
@@ -68,4 +62,3 @@ async function runProcessor(
       );
   }
 }
-

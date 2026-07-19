@@ -50,22 +50,6 @@ export function buildTemporaryJobKey(
   return `jobs/${safeSession}/${randomUUID()}-${safeName}`;
 }
 
-export async function createTemporaryUploadUrl(input: {
-  key: string;
-  contentType: string;
-  expiresIn?: number;
-}): Promise<string> {
-  return getSignedUrl(
-    getClient(),
-    new PutObjectCommand({
-      Bucket: bucket(),
-      Key: input.key,
-      ContentType: input.contentType,
-    }),
-    { expiresIn: input.expiresIn ?? 600 }
-  );
-}
-
 export async function uploadEvidenceObject(opts: {
   key: string;
   body: Buffer;

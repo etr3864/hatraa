@@ -162,6 +162,50 @@ export function mapUploadError(err: unknown): string {
   if (/did not match the expected pattern|SyntaxError|InvalidCharacterError/i.test(message)) {
     return "אחת מהראיות בפורמט לא נתמך או פגום. נסה לשמור מחדש כ־JPG/PNG או PDF ולהעלות שוב.";
   }
+  if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
+    return "העלאת הקובץ נכשלה בגלל בעיית רשת. בדוק חיבור ונסה שוב.";
+  }
   if (/[\u0590-\u05FF]/.test(message)) return message;
-  return "לא הצלחנו לקרוא את הקובץ. נסה קובץ אחר.";
+  return "לא הצלחנו להעלות את הקובץ. נסה קובץ אחר.";
+}
+
+export async function resolveEvidenceFile(file: File): Promise<{
+  name: string;
+  type: string;
+}> {
+  const header = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+  let mime = normalizeEvidenceMime(file.type, file.name);
+
+  try {
+    const detected = detectMimeFromBytes(header);
+    if (detected === "image/gif") {
+      throw new Error("קבצי GIF לא נתמכים. שמור כ־JPG או PNG והעלה שוב.");
+    }
+    if (detected) mime = detected;
+  } catch (err) {
+    if (err instanceof Error && /GIF|לא נתמכים/.test(err.message)) throw err;
+  }
+
+  if (
+    !isSupportedEvidenceMime(mime) &&
+    !/\.(jpe?g|png|webp|heic|heif|pdf)$/i.test(file.name)
+  ) {
+    throw new Error(
+      `סוג קובץ לא נתמך: ${shortenFileName(file.name)}. ניתן להעלות JPG, PNG, WebP, HEIC או PDF`
+    );
+  }
+
+  if (!isSupportedEvidenceMime(mime)) {
+    mime = normalizeEvidenceMime("", file.name);
+  }
+  if (!isSupportedEvidenceMime(mime)) {
+    throw new Error(
+      `סוג קובץ לא נתמך: ${shortenFileName(file.name)}. ניתן להעלות JPG, PNG, WebP, HEIC או PDF`
+    );
+  }
+
+  return {
+    name: shortenFileName(file.name, 120),
+    type: mime,
+  };
 }

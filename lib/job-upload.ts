@@ -5,34 +5,25 @@ export async function uploadFileForJob(input: {
   name: string;
   type: string;
 }): Promise<StoredFileReference> {
-  const metadataResponse = await fetch("/api/jobs/uploads", {
+  const form = new FormData();
+  form.append("file", input.body, input.name);
+
+  const response = await fetch("/api/jobs/uploads", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: input.name,
-      type: input.type,
-      sizeBytes: input.body.size,
-    }),
+    body: form,
   });
-  const metadata = (await metadataResponse.json()) as {
-    uploadUrl?: string;
+  const payload = (await response.json()) as {
     file?: StoredFileReference;
     error?: string;
   };
-  if (!metadataResponse.ok || !metadata.uploadUrl || !metadata.file) {
-    throw new Error(metadata.error ?? "לא הצלחנו להכין את העלאת הקובץ");
+  if (!response.ok || !payload.file) {
+    throw new Error(payload.error ?? "לא הצלחנו להעלות את הקובץ");
   }
 
-  const uploadResponse = await fetch(metadata.uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": metadata.file.type },
-    body: input.body,
-  });
-  if (!uploadResponse.ok) {
-    throw new Error("העלאת הקובץ נכשלה. נסה שוב.");
-  }
-
-  return metadata.file;
+  return {
+    ...payload.file,
+    type: payload.file.type || input.type,
+  };
 }
 
 export function base64ToBlob(base64: string, type: string): Blob {
@@ -43,4 +34,3 @@ export function base64ToBlob(base64: string, type: string): Blob {
   }
   return new Blob([bytes], { type });
 }
-

@@ -5,14 +5,16 @@ import { getAnalyticsSessionId } from "@/backend/services/analytics/request-sess
 import { ensureAnalyticsSession } from "@/backend/services/analytics/track-event";
 import {
   buildTemporaryJobKey,
-  createTemporaryUploadUrl,
   isR2Configured,
+  uploadEvidenceObject,
 } from "@/backend/services/storage/r2";
 import {
   isSupportedEvidenceMime,
   normalizeEvidenceMime,
   shortenFileName,
 } from "@/lib/evidence-mime";
+
+export const maxDuration = 60;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const AUDIO_MIMES = new Set([
@@ -31,39 +33,66 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json().catch(() => null)) as {
-    name?: string;
-    type?: string;
-    sizeBytes?: number;
-  } | null;
-  if (!body?.name || !body.type || !validSize(body.sizeBytes)) {
-    return NextResponse.json({ error: "פרטי קובץ לא תקינים" }, { status: 400 });
+  try {
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "לא התקבל קובץ להעלאה" }, { status: 400 });
+    }
+    if (!validSize(file.size)) {
+      return NextResponse.json(
+        { error: "גודל הקובץ אינו תקין (מקסימום 10MB)" },
+        { status: 400 }
+      );
+    }
+
+    const name = shortenFileName(file.name || "upload.bin", 120);
+    const type = normalizeUploadMime(file.type, name);
+    if (!type) {
+      return NextResponse.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
+    }
+
+    const sessionId = getAnalyticsSessionId(request) ?? randomUUID();
+    await ensureAnalyticsSession(sessionId);
+
+    const key = buildTemporaryJobKey(sessionId, name);
+    const body = Buffer.from(await file.arrayBuffer());
+    await uploadEvidenceObject({ key, body, contentType: type });
+
+    const response = NextResponse.json({
+      file: {
+        key,
+        name,
+        type,
+        sizeBytes: file.size,
+      },
+    });
+    setSessionCookie(response, sessionId);
+    return response;
+  } catch (error) {
+    console.error(
+      "[jobs/uploads]",
+      error instanceof Error ? error.message : error
+    );
+    return NextResponse.json(
+      { error: "העלאת הקובץ נכשלה. נסה שוב." },
+      { status: 500 }
+    );
   }
+}
 
-  const normalizedType = normalizeUploadMime(body.type, body.name);
-  if (!normalizedType) {
-    return NextResponse.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
-  }
+function validSize(value: number): boolean {
+  return Number.isInteger(value) && value > 0 && value <= MAX_FILE_SIZE;
+}
 
-  const sessionId = getAnalyticsSessionId(request) ?? randomUUID();
-  await ensureAnalyticsSession(sessionId);
+function normalizeUploadMime(type: string, name: string): string | null {
+  const raw = type.split(";")[0].trim().toLowerCase();
+  if (AUDIO_MIMES.has(raw)) return raw;
+  const normalized = normalizeEvidenceMime(raw, name);
+  return isSupportedEvidenceMime(normalized) ? normalized : null;
+}
 
-  const name = shortenFileName(body.name, 120);
-  const key = buildTemporaryJobKey(sessionId, name);
-  const uploadUrl = await createTemporaryUploadUrl({
-    key,
-    contentType: normalizedType,
-  });
-
-  const response = NextResponse.json({
-    uploadUrl,
-    file: {
-      key,
-      name,
-      type: normalizedType,
-      sizeBytes: body.sizeBytes,
-    },
-  });
+function setSessionCookie(response: NextResponse, sessionId: string) {
   response.cookies.set({
     name: ANALYTICS_SESSION_COOKIE,
     value: sessionId,
@@ -73,23 +102,4 @@ export async function POST(request: NextRequest) {
     path: "/",
     maxAge: 30 * 24 * 60 * 60,
   });
-  return response;
 }
-
-function validSize(value: number | undefined): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    value > 0 &&
-    value <= MAX_FILE_SIZE
-  );
-}
-
-function normalizeUploadMime(type: string, name: string): string | null {
-  const raw = type.split(";")[0].trim().toLowerCase();
-  if (AUDIO_MIMES.has(raw)) return raw;
-  const normalized = normalizeEvidenceMime(raw, name);
-  if (isSupportedEvidenceMime(normalized)) return normalized;
-  return null;
-}
-

@@ -9,14 +9,18 @@ import {
   shortenFileName,
   isSupportedEvidenceMime,
   SUPPORTED_EVIDENCE_MIMES,
-  resolveEvidencePayload,
   mapUploadError,
+  resolveEvidenceFile,
 } from "@/lib/evidence-mime";
 import { uploadFileForJob } from "@/lib/job-upload";
 
 const MAX_FILES = 8;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = Array.from(SUPPORTED_EVIDENCE_MIMES);
+
+interface EvidencePreview extends EvidenceFile {
+  previewUrl?: string;
+}
 
 interface EvidenceStepProps {
   initialFiles?: EvidenceFile[];
@@ -25,7 +29,7 @@ interface EvidenceStepProps {
 }
 
 export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepProps) {
-  const [files, setFiles] = useState<EvidenceFile[]>(initialFiles ?? []);
+  const [files, setFiles] = useState<EvidencePreview[]>(initialFiles ?? []);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -55,15 +59,24 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
 
       try {
         setIsUploading(true);
-        const newFiles: EvidenceFile[] = await Promise.all(
+        const newFiles: EvidencePreview[] = await Promise.all(
           incoming.map(async (file) => {
-            const prepared = await readEvidenceFile(file);
+            const prepared = await resolveEvidenceFile(file);
             const storage = await uploadFileForJob({
               body: file,
               name: prepared.name,
               type: prepared.type,
             });
-            return { ...prepared, storage };
+            return {
+              name: prepared.name,
+              type: prepared.type,
+              base64: "",
+              description: "",
+              storage,
+              previewUrl: file.type.startsWith("image/")
+                ? URL.createObjectURL(file)
+                : undefined,
+            };
           })
         );
 
@@ -78,7 +91,11 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
   );
 
   const removeFile = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const target = prev[index];
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   }, []);
 
   const updateDescription = useCallback((index: number, desc: string) => {
@@ -111,13 +128,16 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
     return <IconFile size={24} className="text-gray-500" />;
   };
 
-  const getPreview = (file: EvidenceFile) => {
-    if (file.type.startsWith("image/") && file.base64) {
+  const getPreview = (file: EvidencePreview) => {
+    const previewSrc =
+      file.previewUrl ||
+      (file.base64 ? `data:${file.type};base64,${file.base64}` : "");
+    if (file.type.startsWith("image/") && previewSrc) {
       return (
-        // A local data URL preview cannot benefit from Next.js image optimization.
+        // Local blob/data preview cannot benefit from Next.js image optimization.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`data:${file.type};base64,${file.base64}`}
+          src={previewSrc}
           alt={file.name}
           className="w-16 h-16 object-cover rounded-lg border border-[var(--color-border)]"
         />
@@ -225,7 +245,17 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       <div className="flex flex-col gap-3 mt-2">
         <Button
           variant="primary"
-          onClick={() => onContinue(files)}
+          onClick={() =>
+            onContinue(
+              files.map((file) => ({
+                name: file.name,
+                type: file.type,
+                base64: file.base64,
+                description: file.description,
+                storage: file.storage,
+              }))
+            )
+          }
           disabled={files.length === 0 || isUploading}
           isLoading={isUploading}
           className="w-full rounded-xl py-4"
@@ -246,28 +276,4 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       </div>
     </div>
   );
-}
-
-function readEvidenceFile(file: File): Promise<EvidenceFile> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const result = reader.result as string;
-        const prepared = resolveEvidencePayload(file.type, file.name, result);
-        resolve({
-          name: prepared.name,
-          type: prepared.type,
-          base64: prepared.base64,
-          description: "",
-        });
-      } catch (error) {
-        reject(
-          error instanceof Error ? error : new Error(mapUploadError(error))
-        );
-      }
-    };
-    reader.onerror = () => reject(new Error("לא הצלחנו לקרוא את הקובץ"));
-    reader.readAsDataURL(file);
-  });
 }

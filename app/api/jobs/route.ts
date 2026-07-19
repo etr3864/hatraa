@@ -5,17 +5,16 @@ import { ANALYTICS_SESSION_COOKIE } from "@/backend/services/analytics/constants
 import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
 import { ensureAnalyticsSession } from "@/backend/services/analytics/track-event";
 import { prisma } from "@/backend/services/db/prisma";
-import { dispatchProcessingJob } from "@/backend/services/jobs/dispatch";
+import { scheduleProcessingJob } from "@/backend/services/jobs/dispatch";
 import { createProcessingJob } from "@/backend/services/jobs/repository";
 import type { ProcessingJobInput } from "@/backend/services/jobs/types";
 import { validateIdempotencyKey } from "@/backend/services/jobs/validation/common";
 import { validateExtractionInput } from "@/backend/services/jobs/validation/extraction";
 import { validateGenerationInput } from "@/backend/services/jobs/validation/generation";
 import { validateRewriteInput } from "@/backend/services/jobs/validation/rewrite";
-import {
-  checkRateLimit,
-  getClientIp,
-} from "@/backend/services/security/rate-limiter";
+import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
+
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
       idempotencyKey,
       payload,
     });
-    await dispatchProcessingJob(job);
+    scheduleProcessingJob(job);
 
     const response = NextResponse.json(
       { jobId: job.id, status: job.status },
@@ -56,6 +55,10 @@ export async function POST(request: NextRequest) {
     setSessionCookie(response, sessionId);
     return response;
   } catch (error) {
+    console.error(
+      "[jobs]",
+      error instanceof Error ? error.stack || error.message : error
+    );
     const message =
       error instanceof Error ? error.message : "לא הצלחנו ליצור את המשימה";
     const isUserError = /[\u0590-\u05FF]/.test(message);
