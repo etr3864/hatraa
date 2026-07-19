@@ -72,7 +72,7 @@ export function DownloadSection({
           <>
             <IconDownload size={18} />
             הורד PDF
-            {withSignature && " עם חתימת עו&quot;ד"}
+            {withSignature && ' עם חתימת עו"ד'}
           </>
         )}
       </Button>
