@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SiteVisitTracker } from "@/components/analytics/SiteVisitTracker";
+import { SiteChrome } from "@/components/legal/SiteChrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,7 +36,7 @@ export default function RootLayout({
       </head>
       <body className="bg-[var(--color-bg)] text-[var(--color-body)]">
         <SiteVisitTracker />
-        {children}
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );

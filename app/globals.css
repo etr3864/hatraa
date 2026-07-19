@@ -337,3 +337,65 @@ small {
   -webkit-mask-image: radial-gradient(ellipse 80% 80% at center, black 40%, transparent 90%);
   mask-image: radial-gradient(ellipse 80% 80% at center, black 40%, transparent 90%);
 }
+
+/* Accessibility preferences (AccessibilityMenu) */
+html[data-a11y-font="large"] {
+  font-size: 112.5%;
+}
+
+html[data-a11y-font="xlarge"] {
+  font-size: 125%;
+}
+
+html[data-a11y-contrast="high"] {
+  --color-bg: #000000;
+  --color-elevated: #0a0a0a;
+  --color-ink: #ffffff;
+  --color-body: #f5f5f5;
+  --color-subtle: #e5e5e5;
+  --color-border: #ffffff;
+  --color-accent: #ffe066;
+}
+
+html[data-a11y-links="underline"] a {
+  text-decoration: underline !important;
+  text-underline-offset: 0.18em;
+}
+
+html[data-a11y-motion="reduce"] *,
+html[data-a11y-motion="reduce"] *::before,
+html[data-a11y-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-a11y-font-family="readable"] body {
+  font-family: Arial, "Noto Sans Hebrew", Heebo, sans-serif !important;
+  letter-spacing: 0.02em;
+  word-spacing: 0.04em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.focus\:not-sr-only:focus {
+  position: fixed;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}

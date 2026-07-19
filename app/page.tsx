@@ -42,18 +42,6 @@ export default function LandingPage() {
         <WhyItWorks />
         <FinalCTA />
       </main>
-
-      <footer className="border-t border-white/[0.04]">
-        <div className="max-w-5xl mx-auto px-6 py-10 text-center">
-          <p className="text-sm text-[var(--color-subtle)]">
-            © 2026 התראה בקליק · כל הזכויות שמורות
-          </p>
-          <p className="text-xs text-[var(--color-placeholder)] mt-2 max-w-md mx-auto">
-            מכתבי ההתראה מיוצרים באמצעות AI ואינם מהווים ייעוץ משפטי.
-            ניתן להוסיף חתימת עורך דין לתוקף משפטי מלא.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

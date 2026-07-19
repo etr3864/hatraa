@@ -210,7 +210,15 @@ export function ContactStep({ onContinue, isLoading, initialData }: ContactStepP
             target="_blank"
             className="underline text-[var(--color-accent)] font-medium hover:opacity-80"
           >
-            תנאי השימוש ומדיניות הפרטיות
+            תנאי השימוש
+          </Link>
+          {" "}ו{" "}
+          <Link
+            href="/privacy"
+            target="_blank"
+            className="underline text-[var(--color-accent)] font-medium hover:opacity-80"
+          >
+            מדיניות הפרטיות
           </Link>
           , לרבות העברת פרטיי ופרטי המקרה לעורכי דין לצורך מתן שירות משפטי,
           וקבלת פניות טלפוניות ו/או הודעות מעורכי דין בנוגע למקרה שלי.
