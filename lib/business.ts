@@ -3,50 +3,41 @@ function env(name: string, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback;
 }
 
-/** פרטי העוסק — מעדכנים ב-env בלי לגעת בקוד */
+/** פרטי העוסק — override ב-env אם צריך */
 export const BUSINESS = {
   brandName: env("NEXT_PUBLIC_BRAND_NAME", "התראה בקליק"),
-  legalName: env(
-    "NEXT_PUBLIC_BUSINESS_LEGAL_NAME",
-    "[שם העסק / החברה להשלמה]"
-  ),
+  legalName: env("NEXT_PUBLIC_BUSINESS_LEGAL_NAME", "משה שועלי"),
   registrationType: env(
     "NEXT_PUBLIC_BUSINESS_REGISTRATION_TYPE",
-    "עוסק מורשה / חברה בע״מ"
+    "עוסק מורשה"
   ),
   registrationNumber: env(
     "NEXT_PUBLIC_BUSINESS_REGISTRATION_NUMBER",
-    "[מספר עוסק / ח.פ. להשלמה]"
+    "203439732"
   ),
   address: env(
     "NEXT_PUBLIC_BUSINESS_ADDRESS",
-    "[כתובת העסק להשלמה]"
+    "שאול המלך 39, תל אביב"
   ),
-  phone: env("NEXT_PUBLIC_BUSINESS_PHONE", "[טלפון להשלמה]"),
-  email: env(
-    "NEXT_PUBLIC_BUSINESS_EMAIL",
-    "[דוא״ל ליצירת קשר להשלמה]"
-  ),
+  phone: env("NEXT_PUBLIC_BUSINESS_PHONE", "0547951651"),
+  email: env("NEXT_PUBLIC_BUSINESS_EMAIL", "Office.shualylaw@gmail.com"),
   privacyEmail: env(
     "NEXT_PUBLIC_PRIVACY_EMAIL",
-    "[דוא״ל פרטיות להשלמה]"
+    "Office.shualylaw@gmail.com"
   ),
   accessibilityCoordinatorName: env(
     "NEXT_PUBLIC_ACCESSIBILITY_COORDINATOR_NAME",
-    "[שם רכז/ת נגישות להשלמה]"
+    "משה שועלי"
   ),
   accessibilityEmail: env(
     "NEXT_PUBLIC_ACCESSIBILITY_EMAIL",
-    "[דוא״ל נגישות להשלמה]"
+    "Office.shualylaw@gmail.com"
   ),
   accessibilityPhone: env(
     "NEXT_PUBLIC_ACCESSIBILITY_PHONE",
-    "[טלפון נגישות להשלמה]"
+    "0547951651"
   ),
-  lastUpdatedLabel: env(
-    "NEXT_PUBLIC_LEGAL_LAST_UPDATED",
-    "יולי 2026"
-  ),
+  lastUpdatedLabel: env("NEXT_PUBLIC_LEGAL_LAST_UPDATED", "יולי 2026"),
 } as const;
 
 export function isBusinessPlaceholder(value: string): boolean {
