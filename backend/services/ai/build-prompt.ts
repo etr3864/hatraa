@@ -97,5 +97,8 @@ ${input.amount ? `- סכום: ${sanitizeInput(input.amount)}` : ""}
 ${evidenceSection}${companySenderNote}
 ${retryNote ? `\nהנחיה מחמירה לתיקון:\n${retryNote}` : ""}
 
+חתימה (חובה): "בכבוד רב," ואז שורה עם ${senderDisplayName} | ${sanitizeInput(input.senderPhone)} | ${sanitizeInput(input.senderEmail)}.
+אסור לחתום כעו"ד, אסור [שם להשלמה] או כל placeholder אחר.
+
 החזר JSON בלבד.`;
 }

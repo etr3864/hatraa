@@ -2,10 +2,13 @@
 
 import { clsx } from "@/lib/utils";
 import { attorneyShortLabel } from "@/lib/attorney";
+import { sanitizeLetterContent } from "@/backend/services/ai/sanitize-letter-content";
 
 interface LetterDisplayProps {
   content: string;
   senderName: string;
+  senderPhone?: string;
+  senderEmail?: string;
   respondentName: string;
   /** מצב לפני בחירת אפסייל */
   withSignatureBlur: boolean;
@@ -16,11 +19,20 @@ interface LetterDisplayProps {
 export function LetterDisplay({
   content,
   senderName,
+  senderPhone,
+  senderEmail,
   respondentName,
   withSignatureBlur,
   attorneyVerified = false,
 }: LetterDisplayProps) {
-  const paragraphs = content
+  const displayContent = sanitizeLetterContent(content, {
+    senderName,
+    senderPhone,
+    senderEmail,
+    attorneyVerified,
+  });
+
+  const paragraphs = displayContent
     .split(/\n{2,}/)
     .filter((p) => p.trim().length > 0);
 
@@ -85,9 +97,7 @@ export function LetterDisplay({
                 </span>
               </div>
               <p className="text-xs text-[var(--color-subtle)]">
-                {attorneyVerified
-                  ? `${attorneyShortLabel()} · מאומת ומאושר`
-                  : 'עו"ד · מאומת ומאושר'}
+                {`${attorneyShortLabel()} · מאומת ומאושר`}
               </p>
             </div>
           </div>

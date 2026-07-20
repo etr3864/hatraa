@@ -10,6 +10,7 @@ import { getKnowledge } from "./knowledge";
 import { parseLooseJson } from "./parse-json";
 import { verifyLetter } from "./verify";
 import { stripAiDashes } from "./strip-ai-dashes";
+import { sanitizeLetterContent } from "./sanitize-letter-content";
 import { sanitizeInput } from "../security/sanitize";
 
 let client: GoogleGenAI | null = null;
@@ -124,7 +125,12 @@ ${content}
   }
 
   return {
-    content: rewritten,
+    content: sanitizeLetterContent(rewritten, {
+      senderName: input.senderName,
+      senderPhone: input.senderPhone,
+      senderEmail: input.senderEmail,
+      attorneyVerified: true,
+    }),
     verified: verification.verified,
   };
 }

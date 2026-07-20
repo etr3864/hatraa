@@ -201,6 +201,8 @@ export default function ResultPage() {
         <LetterDisplay
           content={result.content}
           senderName={result.letterInput.senderName}
+          senderPhone={result.letterInput.senderPhone}
+          senderEmail={result.letterInput.senderEmail}
           respondentName={result.letterInput.respondentName}
           withSignatureBlur={upsellState === "pending" && !isUpgrading}
           attorneyVerified={attorneyVerified}

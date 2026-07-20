@@ -29,7 +29,12 @@ export function buildLetterHtml(opts: PdfTemplateOptions): string {
   });
 
   const parties = buildPartiesHtml(opts);
-  const body = buildBodyHtml(opts.content);
+  const body = buildBodyHtml(opts.content, {
+    senderName: opts.senderName,
+    senderPhone: opts.senderPhone,
+    senderEmail: opts.senderEmail,
+    attorneyVerified: opts.attorneyVerified,
+  });
   const signature = buildSignatureHtml({
     withSignature: opts.withSignature,
     signatureDataUrl: opts.signatureDataUrl,

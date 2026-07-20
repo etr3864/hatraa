@@ -7,6 +7,7 @@ import { sanitizeForFileName, getCurrentMonthHebrew } from "./parse-response";
 import { verifyLetter, stripLegalCitations } from "./verify";
 import { validateLetter, buildRetryInstruction } from "./validate-letter";
 import { stripAiDashes } from "./strip-ai-dashes";
+import { sanitizeLetterContent } from "./sanitize-letter-content";
 
 interface GenerateLetterContext {
   sessionId?: string | null;
@@ -69,8 +70,16 @@ export async function generateLetter(
       `מכתב_התראה_${sanitizeForFileName(input.respondentName)}_${getCurrentMonthHebrew()}`
   );
 
+  const content = stripAiDashes(
+    sanitizeLetterContent(parsed.content, {
+      senderName: input.senderName,
+      senderPhone: input.senderPhone,
+      senderEmail: input.senderEmail,
+    })
+  );
+
   return {
-    content: stripAiDashes(parsed.content),
+    content,
     upsellMessage: stripAiDashes(parsed.upsellMessage),
     fileName,
     knowledgeVersion: knowledge.version,
