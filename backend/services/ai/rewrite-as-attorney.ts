@@ -13,6 +13,7 @@ import { stripAiDashes } from "./strip-ai-dashes";
 import { sanitizeLetterContent } from "./sanitize-letter-content";
 import { mapEvidenceFormatError } from "@/lib/evidence-mime";
 import { logExternalError } from "@/backend/services/logging/external-error";
+import { sanitizeInput } from "../security/sanitize";
 
 let client: GoogleGenAI | null = null;
 
