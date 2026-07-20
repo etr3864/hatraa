@@ -11,7 +11,8 @@ import { parseLooseJson } from "./parse-json";
 import { verifyLetter } from "./verify";
 import { stripAiDashes } from "./strip-ai-dashes";
 import { sanitizeLetterContent } from "./sanitize-letter-content";
-import { sanitizeInput } from "../security/sanitize";
+import { mapEvidenceFormatError } from "@/lib/evidence-mime";
+import { logExternalError } from "@/backend/services/logging/external-error";
 
 let client: GoogleGenAI | null = null;
 
@@ -69,10 +70,18 @@ function buildAttorneyBlock(): string {
 }
 
 function parseRewriteJson(raw: string): string {
-  const parsed = parseLooseJson(raw, "שגיאה בניסוח מחדש של המכתב");
-  const content = typeof parsed.content === "string" ? parsed.content.trim() : "";
-  if (!content) throw new Error("שגיאה בניסוח מחדש של המכתב");
-  return content;
+  try {
+    const parsed = parseLooseJson(raw, "שגיאה בניסוח מחדש של המכתב");
+    const content = typeof parsed.content === "string" ? parsed.content.trim() : "";
+    if (!content) throw new Error("שגיאה בניסוח מחדש של המכתב");
+    return content;
+  } catch (err) {
+    logExternalError("rewrite:parse", err, {
+      rawPreview: raw.slice(0, 500),
+      rawLength: raw.length,
+    });
+    throw err;
+  }
 }
 
 export async function rewriteAsAttorney(
@@ -169,6 +178,10 @@ async function callRewriteModel(
       context,
       error
     );
-    throw error;
+    logExternalError("rewrite:gemini", error, {
+      operation,
+      leadId: context.leadId,
+    });
+    throw new Error(mapEvidenceFormatError(error));
   }
 }

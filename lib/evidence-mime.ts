@@ -154,13 +154,16 @@ export function mapEvidenceFormatError(err: unknown): string {
     return "אחת מהראיות בפורמט לא נתמך או פגום. נסה לשמור מחדש כ־JPG/PNG או PDF ולהעלות שוב.";
   }
   if (/quota|billing|credit|exceeded|429|rate.?limit/i.test(message)) {
-    return "שירות החילוץ עמוס כרגע. נסה שוב בעוד דקה.";
+    return "השירות עמוס כרגע. נסה שוב בעוד דקה.";
   }
   if (/API key|API_KEY|401|403|permission|unauthorized/i.test(message)) {
-    return "שירות החילוץ אינו זמין כרגע. נסה שוב מאוחר יותר.";
+    return "השירות אינו זמין כרגע. נסה שוב מאוחר יותר.";
+  }
+  if (/404|not found|model/i.test(message)) {
+    return "שירות הבינה המלאכותית אינו זמין כרגע. נסה שוב מאוחר יותר.";
   }
   if (/[\u0590-\u05FF]/.test(message)) return message;
-  return "שגיאה בחילוץ הפרטים. נסה שוב.";
+  return "שגיאה בעיבוד. נסה שוב.";
 }
 
 export function mapUploadError(err: unknown): string {
