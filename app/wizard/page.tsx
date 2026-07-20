@@ -6,11 +6,13 @@ import { IconArrowRight } from "@tabler/icons-react";
 import type { ConfirmData } from "@/components/wizard/ConfirmStep";
 import type { ContactData } from "@/components/wizard/ContactStep";
 import { WizardDialogs } from "@/components/wizard/WizardDialogs";
+import { ResumeLetterBanner } from "@/components/wizard/ResumeLetterBanner";
 import {
   WizardStepContent,
   type WizardStep,
   type WizardViewData,
 } from "@/components/wizard/WizardStepContent";
+import { LETTER_RESULT_KEY } from "@/lib/letter-result";
 import type {
   AudioInput,
   ExtractedData,
@@ -88,7 +90,7 @@ export default function WizardPage() {
             onProgress: (job) =>
               setProcessingStage(job.progressStage ?? "יוצר את המכתב"),
           });
-          localStorage.setItem("letterResult", JSON.stringify(result));
+          localStorage.setItem(LETTER_RESULT_KEY, JSON.stringify(result));
           clearWizardEvidence();
           router.push("/result");
           return;
@@ -294,10 +296,7 @@ export default function WizardPage() {
           onProgress: setProcessingStage,
         });
 
-        localStorage.setItem(
-          "letterResult",
-          JSON.stringify(result)
-        );
+        localStorage.setItem(LETTER_RESULT_KEY, JSON.stringify(result));
         clearWizardEvidence();
 
         router.push("/result");
@@ -395,6 +394,11 @@ export default function WizardPage() {
         isGenerating={isGenerating}
         isAudioMode={isAudioMode}
         processingStage={processingStage}
+        topSlot={
+          step !== "generating" && step !== "extracting" ? (
+            <ResumeLetterBanner />
+          ) : null
+        }
         onInput={handleFreeInputContinue}
         onEvidence={handleEvidenceContinue}
         onSkipEvidence={handleEvidenceSkip}

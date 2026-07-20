@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { clsx } from "@/lib/utils";
 import { attorneyShortLabel } from "@/lib/attorney";
 import { sanitizeLetterContent } from "@/backend/services/ai/sanitize-letter-content";
@@ -10,10 +11,9 @@ interface LetterDisplayProps {
   senderPhone?: string;
   senderEmail?: string;
   respondentName: string;
-  /** מצב לפני בחירת אפסייל */
   withSignatureBlur: boolean;
-  /** אחרי תשלום + rewrite */
   attorneyVerified?: boolean;
+  leadId?: string;
 }
 
 export function LetterDisplay({
@@ -24,7 +24,35 @@ export function LetterDisplay({
   respondentName,
   withSignatureBlur,
   attorneyVerified = false,
+  leadId,
 }: LetterDisplayProps) {
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!attorneyVerified || !leadId || leadId === "no-db") {
+      setSignatureDataUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/attorney-signature?leadId=${encodeURIComponent(leadId)}`)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const data = (await res.json()) as { signatureDataUrl?: string };
+        return data.signatureDataUrl ?? null;
+      })
+      .then((url) => {
+        if (!cancelled) setSignatureDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setSignatureDataUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attorneyVerified, leadId]);
+
   const displayContent = sanitizeLetterContent(content, {
     senderName,
     senderPhone,
@@ -91,11 +119,19 @@ export function LetterDisplay({
             )}
           >
             <div className="flex flex-col gap-2">
-              <div className="w-36 h-12 bg-[var(--color-muted)] rounded opacity-70 flex items-center justify-center">
-                <span className="text-xs text-[var(--color-subtle)] font-medium">
-                  חתימת עו&quot;ד
-                </span>
-              </div>
+              {attorneyVerified && signatureDataUrl ? (
+                <img
+                  src={signatureDataUrl}
+                  alt={`חתימת ${attorneyShortLabel()}`}
+                  className="w-36 h-12 object-contain object-right"
+                />
+              ) : (
+                <div className="w-36 h-12 bg-[var(--color-muted)] rounded opacity-70 flex items-center justify-center">
+                  <span className="text-xs text-[var(--color-subtle)] font-medium">
+                    חתימת עו&quot;ד
+                  </span>
+                </div>
+              )}
               <p className="text-xs text-[var(--color-subtle)]">
                 {`${attorneyShortLabel()} · מאומת ומאושר`}
               </p>

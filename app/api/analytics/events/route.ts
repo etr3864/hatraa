@@ -39,7 +39,7 @@ interface EventBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const rate = checkRateLimit(
+    const rate = await checkRateLimit(
       `analytics:${getClientIp(request.headers)}`,
       200
     );

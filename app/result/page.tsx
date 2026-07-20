@@ -2,31 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { LetterDisplay } from "@/components/result/LetterDisplay";
 import { UpsellBlock } from "@/components/result/UpsellBlock";
 import { DownloadSection } from "@/components/result/DownloadSection";
 import { AttorneyUpgradeOverlay } from "@/components/result/AttorneyUpgradeOverlay";
 import { LetterNotSavedWarning } from "@/components/result/LetterNotSavedWarning";
+import { LeaveLetterDialog } from "@/components/result/LeaveLetterDialog";
 import { IconCheck, IconArrowRight } from "@tabler/icons-react";
-import type { LetterInput } from "@/lib/types";
 import { attorneyShortLabel } from "@/lib/attorney";
 import { trackClientEvent } from "@/lib/analytics";
+import {
+  LETTER_RESULT_KEY,
+  readStoredLetterResult,
+  type StoredLetterResult,
+} from "@/lib/letter-result";
+import { useLeaveGuard } from "@/hooks/use-leave-guard";
 import {
   hasPendingProcessingJob,
   runProcessingJob,
 } from "@/lib/processing-jobs";
 import type { AttorneyRewriteJobResult } from "@/backend/services/jobs/types";
 
-interface LetterResult {
-  leadId: string;
-  letterId: string;
-  content: string;
-  upsellMessage: string;
-  fileName: string;
-  letterInput: LetterInput;
-  attorneyVerified?: boolean;
-}
+type LetterResult = StoredLetterResult;
 
 type UpsellState = "pending" | "accepted" | "declined";
 
@@ -39,28 +36,27 @@ export default function ResultPage() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      const stored = localStorage.getItem("letterResult");
+      const stored = readStoredLetterResult();
       if (!stored) {
         router.replace("/wizard");
         return;
       }
-      try {
-        const parsed = JSON.parse(stored) as LetterResult;
-        setResult(parsed);
-        if (parsed.attorneyVerified) {
-          setUpsellState("accepted");
-        }
-      } catch {
-        router.replace("/wizard");
-      }
+      setResult(stored);
+      setUpsellState(stored.attorneyVerified ? "accepted" : "pending");
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [router]);
 
   const persistResult = useCallback((next: LetterResult) => {
     setResult(next);
-    localStorage.setItem("letterResult", JSON.stringify(next));
+    localStorage.setItem(LETTER_RESULT_KEY, JSON.stringify(next));
   }, []);
+
+  const isPaid = !!result?.attorneyVerified;
+  const { dialogOpen, requestLeave, cancelLeave, confirmLeave } = useLeaveGuard({
+    enabled: !!result,
+    isPaid,
+  });
 
   const runAttorneyRewrite = useCallback(async (
     current: LetterResult,
@@ -167,15 +163,23 @@ export default function ResultPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]" dir="rtl">
+      <LeaveLetterDialog
+        open={dialogOpen}
+        isPaid={isPaid}
+        onStay={cancelLeave}
+        onLeave={confirmLeave}
+      />
+
       <header className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg)]/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link
-            href="/"
-            className="text-sm text-[var(--color-body)] hover:text-[var(--color-ink)] transition-colors flex items-center gap-1"
+          <button
+            type="button"
+            onClick={() => requestLeave("/")}
+            className="text-sm text-[var(--color-body)] hover:text-[var(--color-ink)] transition-colors flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0"
           >
             <IconArrowRight size={14} />
             דף הבית
-          </Link>
+          </button>
           <div className="flex items-center gap-2 text-sm text-[var(--color-success)]">
             <IconCheck size={16} />
             <span>המכתב מוכן</span>
@@ -206,6 +210,7 @@ export default function ResultPage() {
           respondentName={result.letterInput.respondentName}
           withSignatureBlur={upsellState === "pending" && !isUpgrading}
           attorneyVerified={attorneyVerified}
+          leadId={result.leadId}
         />
 
         {upsellState === "pending" && !isUpgrading && (
@@ -260,12 +265,13 @@ export default function ResultPage() {
             מכתבי ההתראה מיוצרים באמצעות AI ואינם מהווים ייעוץ משפטי.
             לתביעות מורכבות מומלץ להתייעץ עם עורך דין.
           </p>
-          <Link
-            href="/wizard"
-            className="text-xs text-[var(--color-accent)] hover:opacity-80 transition-opacity mt-3 inline-block"
+          <button
+            type="button"
+            onClick={() => requestLeave("/wizard")}
+            className="text-xs text-[var(--color-accent)] hover:opacity-80 transition-opacity mt-3 inline-block bg-transparent border-0 cursor-pointer"
           >
             ייצר מכתב נוסף
-          </Link>
+          </button>
         </div>
       </main>
     </div>

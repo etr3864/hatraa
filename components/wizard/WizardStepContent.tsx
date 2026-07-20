@@ -42,6 +42,7 @@ interface WizardStepContentProps {
   isGenerating: boolean;
   isAudioMode: boolean;
   processingStage: string;
+  topSlot?: React.ReactNode;
   onInput: (rawInput: string, audio?: AudioInput) => void;
   onEvidence: (files: EvidenceFile[]) => void;
   onSkipEvidence: () => void;
@@ -54,6 +55,7 @@ export function WizardStepContent(props: WizardStepContentProps) {
   const { step, data } = props;
   return (
     <main className="max-w-xl mx-auto px-6 pt-24 pb-16 min-h-screen flex flex-col justify-center">
+      {props.topSlot}
       {props.error && (step === "input" || step === "evidence") && (
         <ErrorMessage message={props.error} className="mb-6" />
       )}

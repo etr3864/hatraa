@@ -18,7 +18,7 @@ export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
-    const rate = checkRateLimit(getClientIp(request.headers));
+    const rate = await checkRateLimit(getClientIp(request.headers));
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "הגעת למגבלה היומית, נסה שוב מחר." },

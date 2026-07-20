@@ -18,7 +18,7 @@ import type { EvidenceFile } from "@/lib/types";
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req.headers);
-    const rate = checkRateLimit(ip);
+    const rate = await checkRateLimit(ip);
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "הגעת למגבלה היומית, נסה שוב מחר." },

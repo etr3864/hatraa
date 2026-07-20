@@ -4,9 +4,8 @@ import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-
 import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { prisma } from "@/backend/services/db/prisma";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
+import { loadAttorneySignatureDataUrl } from "@/backend/services/pdf/attorney-signature";
 import type { LetterInput } from "@/lib/types";
-import fs from "fs";
-import path from "path";
 
 export const maxDuration = 60;
 
@@ -15,7 +14,7 @@ const PAID_STATUSES = new Set(["completed", "mock"]);
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req.headers);
-    const rate = checkRateLimit(ip);
+    const rate = await checkRateLimit(ip);
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "הגעת למגבלה היומית, נסה שוב מחר." },
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     let signatureDataUrl: string | undefined;
     if (allowSignature) {
-      signatureDataUrl = await loadSignatureDataUrl();
+      signatureDataUrl = await loadAttorneySignatureDataUrl();
     }
 
     let evidence: {
@@ -118,18 +117,5 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[pdf] Error:", err instanceof Error ? err.stack || err.message : err);
     return NextResponse.json({ error: "שגיאה בייצור PDF" }, { status: 500 });
-  }
-}
-
-async function loadSignatureDataUrl(): Promise<string | undefined> {
-  try {
-    const sigPath = path.join(process.cwd(), "public", "signature.png");
-    if (fs.existsSync(sigPath)) {
-      const buffer = fs.readFileSync(sigPath);
-      return `data:image/png;base64,${buffer.toString("base64")}`;
-    }
-    return undefined;
-  } catch {
-    return undefined;
   }
 }
