@@ -42,7 +42,7 @@ export default function WizardPage() {
   const [data, setData] = useState<WizardViewData>(() => ({
     rawInput: "",
     audioData: undefined,
-    evidenceFiles: restoreWizardEvidence(),
+    evidenceFiles: [],
     extractedData: null,
     confirmData: null,
     tone: null,
@@ -63,6 +63,13 @@ export default function WizardPage() {
 
   useEffect(() => {
     trackClientEvent("WIZARD_STARTED");
+  }, []);
+
+  useEffect(() => {
+    const restored = restoreWizardEvidence();
+    if (restored.length > 0) {
+      setData((current) => ({ ...current, evidenceFiles: restored }));
+    }
   }, []);
 
   useEffect(() => {

@@ -167,6 +167,15 @@ export function TimelineSteps() {
 
   const isLastActive = activeSteps[2];
 
+  const fadeMid =
+    containerH > 0
+      ? Math.max(0, Math.min(100, ((lastPointY - 20) / containerH) * 100))
+      : 70;
+  const fadeEnd =
+    containerH > 0
+      ? Math.max(0, Math.min(100, (lastPointY / containerH) * 100))
+      : 85;
+
   return (
     <div ref={containerRef} className="relative max-w-2xl mx-auto">
       {/* SVG winding path */}
@@ -179,8 +188,8 @@ export function TimelineSteps() {
         <defs>
           <linearGradient id="path-fade" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="white" stopOpacity="1" />
-            <stop offset={`${((lastPointY - 20) / containerH) * 100}%`} stopColor="white" stopOpacity="1" />
-            <stop offset={`${(lastPointY / containerH) * 100}%`} stopColor="white" stopOpacity="0.3" />
+            <stop offset={`${fadeMid}%`} stopColor="white" stopOpacity="1" />
+            <stop offset={`${fadeEnd}%`} stopColor="white" stopOpacity="0.3" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </linearGradient>
           <mask id="path-mask">
