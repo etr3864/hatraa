@@ -1,9 +1,12 @@
 function env(name: string, fallback: string): string {
   const value = process.env[name];
-  return value && value.trim() ? value.trim() : fallback;
+  if (!value || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  if (trimmed.includes("להשלמה") || trimmed.startsWith("[")) return fallback;
+  return trimmed;
 }
 
-/** פרטי העוסק — override ב-env אם צריך */
+/** פרטי העוסק — override ב-env אם צריך (placeholders ישנים מתעלמים) */
 export const BUSINESS = {
   brandName: env("NEXT_PUBLIC_BRAND_NAME", "התראה בקליק"),
   legalName: env("NEXT_PUBLIC_BUSINESS_LEGAL_NAME", "משה שועלי"),

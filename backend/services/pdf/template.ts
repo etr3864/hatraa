@@ -37,6 +37,7 @@ export function buildLetterHtml(opts: PdfTemplateOptions): string {
   });
   const signature = buildSignatureHtml({
     withSignature: opts.withSignature,
+    attorneyVerified: opts.attorneyVerified,
     signatureDataUrl: opts.signatureDataUrl,
     displaySender,
     senderPhone: opts.senderPhone,

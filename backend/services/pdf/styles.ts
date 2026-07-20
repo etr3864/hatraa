@@ -88,6 +88,18 @@ export function getPdfStyles(): string {
     object-fit: contain;
   }
 
+  .signature-placeholder {
+    width: 180px;
+    height: 52px;
+    border: 1px dashed #c5c9cf;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8c9098;
+    font-size: 9pt;
+  }
+
   .signature-name,
   .sender-meta {
     font-size: 10pt;

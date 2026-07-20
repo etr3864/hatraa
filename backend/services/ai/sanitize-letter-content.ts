@@ -5,6 +5,8 @@ interface SanitizeLetterOptions {
   senderPhone?: string;
   senderEmail?: string;
   attorneyVerified?: boolean;
+  /** PDF already has parties + signature blocks — strip duplicate letterhead */
+  forPdf?: boolean;
 }
 
 const PLACEHOLDER_IN_BRACKETS = /\[[^\]]{2,}\]/g;
@@ -21,10 +23,9 @@ export function sanitizeLetterContent(
   content: string,
   options: SanitizeLetterOptions
 ): string {
+  const attorneyName = ATTORNEY.displayName;
   const signatureName = options.attorneyVerified
-    ? ATTORNEY.displayName.includes("להשלמה")
-      ? options.senderName
-      : ATTORNEY.displayName
+    ? attorneyName
     : options.senderName;
 
   let result = content;
@@ -39,8 +40,11 @@ export function sanitizeLetterContent(
     return "";
   });
 
-  if (options.attorneyVerified && !ATTORNEY.displayName.includes("להשלמה")) {
-    result = enforceAttorneyIdentity(result, options.senderName, signatureName);
+  if (options.attorneyVerified) {
+    result = enforceAttorneyIdentity(result, options.senderName, attorneyName);
+    if (options.forPdf) {
+      result = stripLetterheadAndClosingForPdf(result);
+    }
   } else if (options.senderPhone && options.senderEmail) {
     result = fillContactPlaceholders(
       result,
@@ -66,22 +70,40 @@ function fillContactPlaceholders(
   return result;
 }
 
-/**
- * After attorney rewrite: force header + closing signature to use attorney
- * identity, even when the model wrongly signed as the client.
- */
 function enforceAttorneyIdentity(
   content: string,
   clientName: string,
   attorneyName: string
 ): string {
   let result = content;
-
   result = replaceClosingSignature(result, clientName, attorneyName);
   result = replaceOpeningSender(result, clientName, attorneyName);
   result = stripOrphanSignatureWords(result);
-
   return result;
+}
+
+/**
+ * PDF template already renders parties (מאת/אל) and signature.
+ * Remove AI-duplicated letterhead + closing so they don't appear twice.
+ */
+function stripLetterheadAndClosingForPdf(content: string): string {
+  let result = content;
+
+  // Drop trailing "בכבוד רב" signature — PDF signature block owns this
+  result = result.replace(
+    /\n*בכבוד רב[,،]?[\s\S]*$/i,
+    ""
+  );
+
+  // Drop leading letterhead until הנדון / א.נ. / שלום / הריני / הנני
+  const bodyStart = result.search(
+    /(?:^|\n)(?:הנדון\s*:|א\.?\s*נ\.?\s*[,،]|שלום\s*רב|הריני\s|הנני\s)/m
+  );
+  if (bodyStart > 0) {
+    result = result.slice(bodyStart).replace(/^\n+/, "");
+  }
+
+  return result.trim();
 }
 
 function clientNameVariants(clientName: string): string[] {
@@ -100,7 +122,6 @@ function replaceClosingSignature(
   attorneyName: string
 ): string {
   const variants = clientNameVariants(clientName);
-  let result = content;
 
   for (const name of variants) {
     const escaped = escapeRegex(name);
@@ -108,18 +129,27 @@ function replaceClosingSignature(
       `(בכבוד רב[,،]?)(\\s*\\n+\\s*)(${escaped})(\\s*)$`,
       "im"
     );
-    if (pattern.test(result)) {
-      return result.replace(pattern, `$1$2${attorneyName}$4`);
+    if (pattern.test(content)) {
+      return content.replace(pattern, `$1$2${attorneyName}$4`);
     }
   }
 
-  // Fallback: any name after "בכבוד רב" at the end → attorney
-  const fallback = /(בכבוד רב[,،]?)(\s*\n+\s*)([^\n]{1,80})(\s*)$/im;
-  if (fallback.test(result)) {
-    return result.replace(fallback, `$1$2${attorneyName}$4`);
+  // Company closing: "בכבוד רב,\nCompany\nrole: name\nemail | phone"
+  const companyClosing =
+    /(בכבוד רב[,،]?)(\s*\n+)([\s\S]{1,200}?)(\s*)$/im;
+  if (companyClosing.test(content)) {
+    const match = content.match(companyClosing);
+    if (match && /@|טלפון|דירקטור|בע["״]?מ/.test(match[3] ?? "")) {
+      return content.replace(companyClosing, `$1$2${attorneyName}$4`);
+    }
   }
 
-  return result;
+  const fallback = /(בכבוד רב[,،]?)(\s*\n+\s*)([^\n]{1,80})(\s*)$/im;
+  if (fallback.test(content)) {
+    return content.replace(fallback, `$1$2${attorneyName}$4`);
+  }
+
+  return content;
 }
 
 function replaceOpeningSender(
@@ -138,7 +168,6 @@ function replaceOpeningSender(
     return lines.join("\n");
   }
 
-  // "איתן | טלפון | מייל" or "איתן  כתובת: ..."
   for (const name of variants) {
     const escaped = escapeRegex(name);
     const headed = new RegExp(`^${escaped}(\\s*[|\\|].*)?$`);
@@ -146,6 +175,12 @@ function replaceOpeningSender(
       lines[0] = attorneyName + (first.match(/[|\\|].*$/)?.[0] ?? "");
       return lines.join("\n");
     }
+  }
+
+  // Company letterhead first line
+  if (/בע["״]?מ|חברה/.test(first) && !first.includes("עו")) {
+    lines[0] = attorneyName;
+    return lines.join("\n");
   }
 
   return content;

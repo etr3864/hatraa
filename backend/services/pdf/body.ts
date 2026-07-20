@@ -13,7 +13,7 @@ export function buildBodyHtml(
   }
 ): string {
   const cleaned = options
-    ? sanitizeLetterContent(content, options)
+    ? sanitizeLetterContent(content, { ...options, forPdf: true })
     : content;
 
   const paragraphs = stripAiDashes(cleaned)

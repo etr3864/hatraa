@@ -1,6 +1,10 @@
 function env(name: string, fallback: string): string {
   const value = process.env[name];
-  return value && value.trim() ? value.trim() : fallback;
+  if (!value || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  // Ignore stale Vercel placeholders that would override real defaults
+  if (trimmed.includes("להשלמה") || trimmed.startsWith("[")) return fallback;
+  return trimmed;
 }
 
 export const ATTORNEY = {
@@ -20,12 +24,11 @@ export const ATTORNEY = {
 } as const;
 
 export function attorneyShortLabel(): string {
-  const name = ATTORNEY.displayName.includes("להשלמה")
-    ? 'עו"ד'
-    : ATTORNEY.displayName;
-
-  if (ATTORNEY.officeName && !ATTORNEY.officeName.includes("להשלמה")) {
-    return `${name}, ${ATTORNEY.officeName}`;
+  if (
+    ATTORNEY.officeName &&
+    !ATTORNEY.officeName.includes("להשלמה")
+  ) {
+    return `${ATTORNEY.displayName}, ${ATTORNEY.officeName}`;
   }
-  return name;
+  return ATTORNEY.displayName;
 }
