@@ -18,6 +18,7 @@ import {
   CATEGORY_JSON,
   CATEGORY_CLASSIFICATION_RULES,
 } from "./category-classification";
+import { logExternalError } from "@/backend/services/logging/external-error";
 import { parseLooseJson } from "./parse-json";
 import { sanitizeInput, wrapUserInput } from "../security/sanitize";
 
@@ -158,14 +159,27 @@ export async function extractContext(
       context,
       err
     );
+    logExternalError("extract:gemini", err, {
+      hasEvidence,
+      evidenceCount: evidence?.length ?? 0,
+    });
     throw new Error(mapGeminiClientError(err));
   }
 
   const raw = response.text ?? "";
-  const parsed = parseLooseJson(
-    raw,
-    "לא הצלחנו להבין את הפרטים. נסה לפרט יותר."
-  );
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = parseLooseJson(
+      raw,
+      "לא הצלחנו להבין את הפרטים. נסה לפרט יותר."
+    );
+  } catch (err) {
+    logExternalError("extract:parse", err, {
+      rawPreview: raw.slice(0, 500),
+      rawLength: raw.length,
+    });
+    throw err;
+  }
 
   const category = VALID_CATEGORIES.includes(parsed.category as Category)
     ? (parsed.category as Category)
@@ -232,6 +246,7 @@ async function transcribeAudio(
       context,
       err
     );
+    logExternalError("extract:transcribe", err, { mimeType: safeMime });
     throw new Error(mapGeminiClientError(err));
   }
 

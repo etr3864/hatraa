@@ -4,6 +4,7 @@ import {
   inngest,
   PROCESS_JOB_EVENT,
 } from "@/backend/inngest/client";
+import { logExternalError } from "@/backend/services/logging/external-error";
 import { executeProcessingJob } from "./execute-job";
 import { failJob, setJobQueueEvent } from "./repository";
 
@@ -12,10 +13,11 @@ export function scheduleProcessingJob(job: ProcessingJob): void {
     try {
       await executeProcessingJob(job.id);
     } catch (error) {
-      console.error(
-        "[jobs] local execution failed:",
-        error instanceof Error ? error.message : error
-      );
+      logExternalError("jobs", error, {
+        jobId: job.id,
+        type: job.type,
+        userMessage: toHebrewError(error),
+      });
       await failJob(
         job.id,
         toHebrewError(error) ?? "העיבוד נכשל. אפשר לנסות שוב."
