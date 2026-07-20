@@ -50,5 +50,38 @@ export function sanitizeLetterContent(
     result = result.replace(/\[מייל\]/g, options.senderEmail);
   }
 
+  if (options.attorneyVerified && !ATTORNEY.displayName.includes("להשלמה")) {
+    result = fixAttorneySignature(result, options.senderName, signatureName);
+  }
+
   return result.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * When the AI incorrectly signs as the client instead of the attorney,
+ * replace the client name in the signature block with the attorney name.
+ */
+function fixAttorneySignature(
+  content: string,
+  clientName: string,
+  attorneyName: string
+): string {
+  if (!clientName.trim()) return content;
+  const escaped = clientName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Fix closing signature: "בכבוד רב,\n<clientName>" → "בכבוד רב,\n<attorney>"
+  const closingPattern = new RegExp(
+    `(בכבוד רב[,،]?\\s*(?:ובציפייה לתגובתכם[,،]?\\s*)?)\\n${escaped}\\s*$`,
+    "m"
+  );
+  let result = content.replace(closingPattern, `$1\n${attorneyName}`);
+
+  // Fix opening sender line: first line is just the client name
+  const lines = result.split("\n");
+  if (lines[0]?.trim() === clientName.trim()) {
+    lines[0] = attorneyName;
+    result = lines.join("\n");
+  }
+
+  return result;
 }
