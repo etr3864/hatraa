@@ -12,6 +12,7 @@ import {
   IconDownload,
   IconRefresh,
   IconLock,
+  IconTrash,
 } from "@tabler/icons-react";
 import type { Lead, Category } from "@/lib/types";
 import { CATEGORIES, TONES } from "@/lib/constants";
@@ -41,6 +42,8 @@ export default function DatabasePage() {
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const buildParams = useCallback(
     (opts?: { page?: number; limit?: number }) => {
@@ -84,6 +87,7 @@ export default function DatabasePage() {
 
         setLeads(data.leads ?? []);
         setTotal(data.total ?? 0);
+        setSelectedIds(new Set());
       } catch {
         setLeads([]);
         setAuthError("שגיאה בטעינת הלידים");
@@ -150,6 +154,81 @@ export default function DatabasePage() {
       setAuthError("שגיאה בייצוא");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allOnPageSelected =
+    leads.length > 0 && leads.every((lead) => selectedIds.has(lead.id));
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        for (const lead of leads) next.delete(lead.id);
+      } else {
+        for (const lead of leads) next.add(lead.id);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (!token || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (
+      !window.confirm(
+        `למחוק ${count} לידים? פעולה זו אינה הפיכה (כולל ראיות ומכתבים).`
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    setAuthError("");
+    try {
+      const res = await fetch("/api/leads/bulk-delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token === COOKIE_SESSION
+            ? {}
+            : { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        deleted?: number;
+      };
+      if (!res.ok) {
+        setAuthError(data.error || "שגיאה במחיקה מרובה");
+        return;
+      }
+
+      const deleted = data.deleted ?? 0;
+      setSelectedIds(new Set());
+      setSelectedLead(null);
+      setTotal((t) => Math.max(0, t - deleted));
+
+      const remainingOnPage = leads.length - deleted;
+      if (remainingOnPage <= 0 && page > 1) {
+        setPage((p) => Math.max(1, p - 1));
+      } else {
+        await fetchLeads(token);
+      }
+    } catch {
+      setAuthError("שגיאה במחיקה מרובה");
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -287,14 +366,36 @@ export default function DatabasePage() {
           />
         </div>
 
-        <p className="text-xs text-[var(--color-subtle)]">
-          לחץ על שורה כדי לראות את תיאור המקרה, המכתב המלא, ולערוך או למחוק.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-[var(--color-subtle)]">
+            לחץ על שורה כדי לראות את תיאור המקרה, המכתב המלא, ולערוך או למחוק.
+          </p>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="ghost"
+              onClick={() => void handleBulkDelete()}
+              isLoading={isBulkDeleting}
+              className="!rounded-md !px-3 !py-2 text-sm !border-[var(--color-error)]/40 !text-[var(--color-error)]"
+            >
+              <IconTrash size={16} stroke={1.5} />
+              מחק {selectedIds.size} נבחרים
+            </Button>
+          )}
+        </div>
 
         <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    aria-label="בחר את כל הלידים בעמוד"
+                    className="h-4 w-4 accent-[var(--color-accent)] cursor-pointer"
+                  />
+                </th>
                 {[
                   "תאריך",
                   "שם",
@@ -319,7 +420,7 @@ export default function DatabasePage() {
               {isLoading
                 ? Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} className="border-b border-[var(--color-border)]">
-                      {Array.from({ length: 9 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <td key={j} className="px-4 py-3">
                           <Skeleton className="h-3 w-full" />
                         </td>
@@ -330,13 +431,15 @@ export default function DatabasePage() {
                     <LeadRow
                       key={lead.id}
                       lead={lead}
+                      selected={selectedIds.has(lead.id)}
+                      onToggleSelect={() => toggleSelect(lead.id)}
                       onSelect={() => setSelectedLead(lead)}
                     />
                   ))}
               {!isLoading && leads.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-8 text-center text-[var(--color-subtle)]"
                   >
                     אין לידים
@@ -347,27 +450,33 @@ export default function DatabasePage() {
           </table>
         </div>
 
-        {total > PAGE_SIZE && (
-          <div className="flex items-center justify-center gap-3">
-            <Button
-              variant="ghost"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="!rounded-md !px-4 !py-2 text-sm !border-[var(--color-border)]"
-            >
-              הקודם
-            </Button>
-            <span className="text-sm text-[var(--color-subtle)]">
-              עמוד {page} מתוך {totalPages}
-            </span>
-            <Button
-              variant="ghost"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page >= totalPages}
-              className="!rounded-md !px-4 !py-2 text-sm !border-[var(--color-border)]"
-            >
-              הבא
-            </Button>
+        {total > 0 && (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-[var(--color-subtle)]">
+              מציג {(page - 1) * PAGE_SIZE + 1}–
+              {Math.min(page * PAGE_SIZE, total)} מתוך {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || isLoading}
+                className="!rounded-md !px-4 !py-2 text-sm !border-[var(--color-border)]"
+              >
+                הקודם
+              </Button>
+              <span className="text-sm text-[var(--color-subtle)] min-w-[7rem] text-center">
+                עמוד {page} מתוך {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || isLoading}
+                className="!rounded-md !px-4 !py-2 text-sm !border-[var(--color-border)]"
+              >
+                הבא
+              </Button>
+            </div>
           </div>
         )}
       </main>
@@ -385,6 +494,11 @@ export default function DatabasePage() {
           }}
           onDeleted={(id) => {
             setLeads((prev) => prev.filter((l) => l.id !== id));
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
             setTotal((t) => Math.max(0, t - 1));
             setSelectedLead(null);
           }}
@@ -394,15 +508,41 @@ export default function DatabasePage() {
   );
 }
 
-function LeadRow({ lead, onSelect }: { lead: Lead; onSelect: () => void }) {
+function LeadRow({
+  lead,
+  selected,
+  onToggleSelect,
+  onSelect,
+}: {
+  lead: Lead;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onSelect: () => void;
+}) {
   const paid =
     lead.payment?.status === "completed" || lead.payment?.status === "mock";
 
   return (
     <tr
       onClick={onSelect}
-      className="border-b border-[var(--color-border)] hover:bg-[var(--color-muted)] cursor-pointer transition-colors"
+      className={`border-b border-[var(--color-border)] hover:bg-[var(--color-muted)] cursor-pointer transition-colors ${
+        selected ? "bg-[var(--color-accent)]/5" : ""
+      }`}
     >
+      <td
+        className="px-3 py-3"
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          aria-label={`בחר ליד ${lead.name}`}
+          className="h-4 w-4 accent-[var(--color-accent)] cursor-pointer"
+        />
+      </td>
       <td className="px-4 py-3 whitespace-nowrap text-[var(--color-subtle)]">
         {new Date(lead.createdAt).toLocaleDateString("he-IL")}
       </td>
