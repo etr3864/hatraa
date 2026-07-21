@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape";
+import { getHebrewDateLabel } from "./hebrew-date";
 
 interface PartiesOptions {
   senderName: string;
@@ -41,7 +42,10 @@ export function buildPartiesHtml(opts: PartiesOptions): string {
     ${opts.respondentAddress ? `<p class="meta-addr">${escapeHtml(opts.respondentAddress)}</p>` : ""}
     ${onBehalf}
   </div>
-  <div class="meta-date">${formatDate()}</div>
+  <div class="meta-date">
+    <span>${formatDate()}</span>
+    <span class="meta-date-hebrew">${escapeHtml(getHebrewDateLabel())}</span>
+  </div>
 </div>
 <p class="without-prejudice">-מבלי לפגוע בזכויות-</p>`;
 }

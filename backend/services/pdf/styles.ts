@@ -76,6 +76,16 @@ export function getPdfStyles(): string {
     flex-shrink: 0;
     text-align: left;
     direction: ltr;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .meta-date-hebrew {
+    font-size: 9pt;
+    direction: rtl;
+    text-align: left;
   }
 
   .meta-addressee {
