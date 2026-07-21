@@ -1,4 +1,5 @@
 import { getPdfStyles } from "./styles";
+import { buildLetterheadHtml } from "./letterhead";
 import { buildPartiesHtml } from "./parties";
 import { buildBodyHtml } from "./body";
 import { buildDisplaySender, buildSignatureHtml } from "./signature";
@@ -22,12 +23,15 @@ export interface PdfTemplateOptions {
 }
 
 export function buildLetterHtml(opts: PdfTemplateOptions): string {
+  const signed = opts.withSignature || !!opts.attorneyVerified;
+
   const displaySender = buildDisplaySender({
     senderName: opts.senderName,
     companyName: opts.companyName,
     signatoryRole: opts.signatoryRole,
   });
 
+  const letterhead = signed ? buildLetterheadHtml() : "";
   const parties = buildPartiesHtml(opts);
   const body = buildBodyHtml(opts.content, {
     senderName: opts.senderName,
@@ -54,15 +58,12 @@ ${getPdfStyles()}
 </head>
 <body>
 <div class="page">
-
+  ${letterhead}
   ${parties}
-
   ${body}
-
   <div class="signature-area">
     ${signature}
   </div>
-
 </div>
 ${opts.evidenceHtml ?? ""}
 </body>

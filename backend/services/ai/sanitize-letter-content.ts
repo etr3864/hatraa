@@ -42,15 +42,16 @@ export function sanitizeLetterContent(
 
   if (options.attorneyVerified) {
     result = enforceAttorneyIdentity(result, options.senderName, attorneyName);
-    if (options.forPdf) {
-      result = stripLetterheadAndClosingForPdf(result);
-    }
   } else if (options.senderPhone && options.senderEmail) {
     result = fillContactPlaceholders(
       result,
       options.senderPhone,
       options.senderEmail
     );
+  }
+
+  if (options.forPdf) {
+    result = stripLetterheadAndClosingForPdf(result);
   }
 
   return result.replace(/\n{3,}/g, "\n\n").trim();

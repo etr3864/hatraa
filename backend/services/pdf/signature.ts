@@ -1,5 +1,6 @@
 import { escapeHtml } from "./escape";
-import { ATTORNEY } from "@/lib/attorney";
+import { ATTORNEY, attorneySignatureName } from "@/lib/attorney";
+import { loadSignatureScribbleDataUrl } from "./load-scribble";
 
 interface SignatureOptions {
   withSignature: boolean;
@@ -22,34 +23,34 @@ export function buildDisplaySender(opts: {
 }
 
 export function buildSignatureHtml(opts: SignatureOptions): string {
-  const {
-    withSignature,
-    attorneyVerified,
-    signatureDataUrl,
-    displaySender,
-    senderPhone,
-    senderEmail,
-  } = opts;
+  const signed = opts.withSignature || opts.attorneyVerified;
 
-  // Paid attorney letter: always show attorney identity (image optional)
-  if (withSignature || attorneyVerified) {
-    const licenseLine = ATTORNEY.licenseNumber
-      ? `<p class="signature-name">רישיון ${escapeHtml(ATTORNEY.licenseNumber)}</p>`
+  if (signed) {
+    const scribble = loadSignatureScribbleDataUrl();
+    const scribbleImg = scribble
+      ? `<img src="${scribble}" alt="" class="sig-scribble" />`
       : "";
-    const image = signatureDataUrl
-      ? `<img src="${signatureDataUrl}" alt="חתימת עורך דין" class="signature-img" />`
-      : `<div class="signature-placeholder"><span>חתימת עו&quot;ד</span></div>`;
+    const handImg =
+      opts.signatureDataUrl
+        ? `<img src="${opts.signatureDataUrl}" alt="" class="sig-hand" />`
+        : "";
 
-    return `<div class="signature-block">
-        ${image}
-        <p class="signature-name">${escapeHtml(ATTORNEY.displayName)}</p>
-        ${licenseLine}
-        <p class="signature-name">${escapeHtml(ATTORNEY.signatureCaption)}</p>
-       </div>`;
+    return `<div class="signature-block signature-block--attorney">
+  <p class="sig-closing">בכבוד רב,</p>
+  <div class="sig-stack">
+    ${scribbleImg}
+    ${handImg}
+    <div class="sig-text">
+      <p class="sig-name">${escapeHtml(attorneySignatureName())}</p>
+      <p class="sig-office">${escapeHtml(ATTORNEY.officeName)}</p>
+    </div>
+  </div>
+</div>`;
   }
 
-  return `<div class="sender-sig">
-        <p>${displaySender}</p>
-        <p class="sender-meta">${escapeHtml(senderPhone)} | ${escapeHtml(senderEmail)}</p>
-       </div>`;
+  return `<div class="signature-block signature-block--sender">
+  <p class="sig-closing">בכבוד רב,</p>
+  <p class="sig-name">${opts.displaySender}</p>
+  <p class="sig-meta">${escapeHtml(opts.senderPhone)} | ${escapeHtml(opts.senderEmail)}</p>
+</div>`;
 }
