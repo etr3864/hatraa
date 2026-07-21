@@ -39,13 +39,13 @@ export function buildPartiesHtml(opts: PartiesOptions): string {
       : "";
 
   return `<div class="letter-meta">
-  <div class="meta-date">${formatDate()}</div>
   <div class="meta-addressee">
     <p class="meta-label">לכבוד</p>
     <p class="meta-name">${escapeHtml(opts.respondentName)}</p>
     ${opts.respondentAddress ? `<p class="meta-addr">${escapeHtml(opts.respondentAddress)}</p>` : ""}
     ${onBehalf}
   </div>
+  <div class="meta-date">${formatDate()}</div>
 </div>
 <p class="without-prejudice">-מבלי לפגוע בזכויות-</p>
 ${emailLine}`;

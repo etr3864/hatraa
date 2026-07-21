@@ -74,6 +74,8 @@ export function getPdfStyles(): string {
     font-size: 10pt;
     color: #1a1a1a;
     flex-shrink: 0;
+    text-align: left;
+    direction: ltr;
   }
 
   .meta-addressee {
