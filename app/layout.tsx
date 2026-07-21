@@ -9,9 +9,14 @@ export const metadata: Metadata = {
     "ייצר מכתב התראה משפטי מקצועי בעברית תוך דקות. ספר לנו מה קרה ו-AI יייצר עבורך מכתב מוכן לשליחה.",
   openGraph: {
     title: "התראה בקליק",
-    description: "מכתב התראה מקצועי תוך דקות, ללא עורך דין",
+    description: "מכתב התראה מקצועי תוך דקות",
     locale: "he_IL",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "התראה בקליק",
+    description: "מכתב התראה מקצועי תוך דקות",
   },
 };
 
