@@ -10,7 +10,11 @@ export const ATTORNEY = {
   displayName: env("NEXT_PUBLIC_ATTORNEY_DISPLAY_NAME", "צבר שועלי"),
   officeName: env(
     "NEXT_PUBLIC_ATTORNEY_OFFICE_NAME",
-    "צבר שועלי – משרד עורכי דין"
+    "שועלי משרד עורכי דין"
+  ),
+  letterheadName: env(
+    "NEXT_PUBLIC_ATTORNEY_LETTERHEAD_NAME",
+    "שועלי משרד עו״ד"
   ),
   licenseNumber: env("NEXT_PUBLIC_ATTORNEY_LICENSE", ""),
   signatureCaption: env(
@@ -23,7 +27,11 @@ export const ATTORNEY = {
 } as const;
 
 export function attorneySignatureName(): string {
-  return `עו״ד ${ATTORNEY.displayName}`;
+  return `עורך דין ${ATTORNEY.displayName}`;
+}
+
+export function attorneyLetterheadName(): string {
+  return ATTORNEY.letterheadName;
 }
 
 export function attorneyShortLabel(): string {

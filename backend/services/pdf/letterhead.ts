@@ -1,5 +1,5 @@
 import { escapeHtml } from "./escape";
-import { ATTORNEY, attorneySignatureName } from "@/lib/attorney";
+import { ATTORNEY, attorneyLetterheadName } from "@/lib/attorney";
 
 export function buildLetterheadHtml(): string {
   const contacts = [
@@ -15,9 +15,9 @@ export function buildLetterheadHtml(): string {
   return `<header class="letterhead">
   <div class="lh-contacts">${contactHtml}</div>
   <div class="lh-brand">
-    <p class="lh-name">${escapeHtml(attorneySignatureName())}</p>
+    <p class="lh-name">${escapeHtml(attorneyLetterheadName())}</p>
     <div class="lh-rule"></div>
-    <p class="lh-office">${escapeHtml(ATTORNEY.officeName)}</p>
+    <p class="lh-office">משרד עורכי דין</p>
   </div>
 </header>`;
 }

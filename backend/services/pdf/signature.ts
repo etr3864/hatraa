@@ -41,8 +41,8 @@ export function buildSignatureHtml(opts: SignatureOptions): string {
     ${scribbleImg}
     ${handImg}
     <div class="sig-text">
-      <p class="sig-name">${escapeHtml(attorneySignatureName())}</p>
       <p class="sig-office">${escapeHtml(ATTORNEY.officeName)}</p>
+      <p class="sig-name">${escapeHtml(attorneySignatureName())}</p>
     </div>
   </div>
 </div>`;
