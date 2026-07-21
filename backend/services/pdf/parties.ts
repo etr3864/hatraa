@@ -29,10 +29,6 @@ function clientLabel(opts: PartiesOptions): string {
 }
 
 export function buildPartiesHtml(opts: PartiesOptions): string {
-  const emailLine = opts.senderEmail
-    ? `<p class="meta-email">נשלח בדוא״ל: <span>${escapeHtml(opts.senderEmail)}</span></p>`
-    : "";
-
   const onBehalf =
     opts.attorneyVerified
       ? `<p class="meta-behalf">בשם: ${clientLabel(opts)}</p>`
@@ -47,6 +43,5 @@ export function buildPartiesHtml(opts: PartiesOptions): string {
   </div>
   <div class="meta-date">${formatDate()}</div>
 </div>
-<p class="without-prejudice">-מבלי לפגוע בזכויות-</p>
-${emailLine}`;
+<p class="without-prejudice">-מבלי לפגוע בזכויות-</p>`;
 }
