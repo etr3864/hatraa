@@ -266,13 +266,14 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
               ? `המשך עם ${files.length} ראיות`
               : "המשך עם ראיות"}
         </Button>
-        <button
+        <Button
+          variant="ghost"
           onClick={onSkip}
           disabled={isUploading}
-          className="text-sm text-[var(--color-subtle)] hover:text-[var(--color-accent)] transition-colors text-center py-2 disabled:opacity-50"
+          className="w-full rounded-xl py-3.5"
         >
           אין לי ראיות כרגע, המשך בלעדיהן
-        </button>
+        </Button>
       </div>
     </div>
   );
