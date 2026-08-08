@@ -52,5 +52,10 @@ next-env.d.ts
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
+
+# local analysis / knowledge graphs
+graphify-out/
+.ua/
