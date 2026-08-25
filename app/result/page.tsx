@@ -105,10 +105,11 @@ function ResultPageContent() {
   }, []);
 
   const isPaid = !!result?.attorneyVerified;
-  const { dialogOpen, requestLeave, cancelLeave, confirmLeave } = useLeaveGuard({
-    enabled: !!result,
-    isPaid,
-  });
+  const { dialogOpen, requestLeave, cancelLeave, confirmLeave, allowNextLeave } =
+    useLeaveGuard({
+      enabled: !!result,
+      isPaid,
+    });
 
   const clearPaymentQuery = useCallback(() => {
     router.replace("/result", { scroll: false });
@@ -172,6 +173,7 @@ function ResultPageContent() {
         if (!body.checkoutUrl) {
           throw new Error("לא התקבל קישור תשלום");
         }
+        allowNextLeave();
         window.location.assign(body.checkoutUrl);
       } catch (err) {
         setIsUpgrading(false);
@@ -181,7 +183,7 @@ function ResultPageContent() {
         );
       }
     },
-    [clearPaymentQuery, router]
+    [allowNextLeave, clearPaymentQuery, router]
   );
 
   useEffect(() => {

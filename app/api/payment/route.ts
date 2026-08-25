@@ -3,6 +3,7 @@ import { prisma } from "@/backend/services/db/prisma";
 import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
 import { startCheckout } from "@/backend/services/payment/checkout";
 import { logExternalError } from "@/backend/services/logging/external-error";
+import { decryptLeadPii } from "@/backend/services/security/encryption";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,12 +32,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
     }
 
+    const customer = decryptLeadPii({
+      name: lead.name,
+      address: "",
+      phone: lead.phone,
+      email: lead.email,
+    });
     const result = await startCheckout({
       leadId,
       customer: {
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
       },
     });
 

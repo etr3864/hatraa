@@ -75,10 +75,15 @@ export function useLeaveGuard({ enabled, isPaid }: UseLeaveGuardOptions) {
     router.push(href);
   }, [isPaid, router]);
 
+  const allowNextLeave = useCallback(() => {
+    allowLeaveRef.current = true;
+  }, []);
+
   return {
     dialogOpen,
     requestLeave,
     cancelLeave,
     confirmLeave,
+    allowNextLeave,
   };
 }
