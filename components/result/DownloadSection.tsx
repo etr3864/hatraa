@@ -14,6 +14,29 @@ interface DownloadSectionProps {
   withSignature: boolean;
 }
 
+export async function downloadLetterPdf(input: {
+  leadId: string;
+  fileName: string;
+  content: string;
+  letterInput: LetterInput;
+  withSignature: boolean;
+}): Promise<void> {
+  const res = await fetch("/api/pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error("שגיאה בייצור PDF");
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${input.fileName}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function DownloadSection({
   leadId,
   fileName,
@@ -27,21 +50,13 @@ export function DownloadSection({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const res = await fetch("/api/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId, withSignature, letterInput, content, fileName }),
+      await downloadLetterPdf({
+        leadId,
+        fileName,
+        content,
+        letterInput,
+        withSignature,
       });
-
-      if (!res.ok) throw new Error("שגיאה בייצור PDF");
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${fileName}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
       setDownloaded(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "שגיאה בהורדה";

@@ -13,6 +13,7 @@ enum AnalyticsEventType {
   DETAILS_COMPLETED
   LETTER_GENERATED
   PAYMENT_STARTED
+  PAYMENT_FAILED
   PAYMENT_COMPLETED
   ATTORNEY_REWRITE_COMPLETED
   PDF_DOWNLOADED
@@ -105,17 +106,22 @@ model Letter {
 }
 
 model Payment {
-  id        String    @id @default(uuid())
-  leadId    String    @unique
-  lead      Lead      @relation(fields: [leadId], references: [id])
+  id                      String    @id @default(uuid())
+  leadId                  String    @unique
+  lead                    Lead      @relation(fields: [leadId], references: [id])
 
-  amount    Int
-  status    String
-  paidAt    DateTime?
+  amount                  Int
+  status                  String
+  provider                String    @default("payplus")
+  externalRequestUid      String?
+  externalTransactionUid  String?
+  failureReason           String?
+  paidAt                  DateTime?
 
-  createdAt DateTime  @default(now())
+  createdAt               DateTime  @default(now())
 
   @@index([status, paidAt])
+  @@index([externalRequestUid])
 }
 
 model Evidence {

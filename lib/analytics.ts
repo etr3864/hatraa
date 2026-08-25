@@ -4,7 +4,8 @@ export type ClientAnalyticsEvent =
   | "SITE_VISIT"
   | "WIZARD_STARTED"
   | "DETAILS_COMPLETED"
-  | "PAYMENT_STARTED";
+  | "PAYMENT_STARTED"
+  | "PAYMENT_FAILED";
 
 interface AnalyticsDimensions {
   entityId?: string;

@@ -2,13 +2,12 @@ import type { ProcessingJob } from "@prisma/client";
 import { rewriteAsAttorney } from "@/backend/services/ai/rewrite-as-attorney";
 import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { prisma } from "@/backend/services/db/prisma";
+import { isPaidPaymentStatus } from "@/backend/services/payment";
 import { encryptJobPayload } from "../payload";
 import type {
   AttorneyRewriteJobInput,
   AttorneyRewriteJobResult,
 } from "../types";
-
-const PAID_STATUSES = new Set(["completed", "mock"]);
 
 export async function processAttorneyRewrite(
   job: ProcessingJob,
@@ -22,7 +21,7 @@ export async function processAttorneyRewrite(
       select: { modelResponse: true },
     }),
   ]);
-  if (!payment || !PAID_STATUSES.has(payment.status)) {
+  if (!isPaidPaymentStatus(payment?.status)) {
     throw new Error("נדרש תשלום לפני ניסוח בשם עורך דין");
   }
 
@@ -64,4 +63,3 @@ export async function processAttorneyRewrite(
   });
   return result;
 }
-

@@ -5,11 +5,10 @@ import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { prisma } from "@/backend/services/db/prisma";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
 import { loadAttorneySignatureDataUrl } from "@/backend/services/pdf/attorney-signature";
+import { isPaidPaymentStatus } from "@/backend/services/payment";
 import type { LetterInput } from "@/lib/types";
 
 export const maxDuration = 60;
-
-const PAID_STATUSES = new Set(["completed", "mock"]);
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (requestedSignature && leadId && leadId !== "no-db") {
       try {
         const payment = await prisma.payment.findUnique({ where: { leadId } });
-        allowSignature = !!payment && PAID_STATUSES.has(payment.status);
+        allowSignature = isPaidPaymentStatus(payment?.status);
       } catch (dbErr) {
         console.error("[pdf] payment check failed:", dbErr);
         allowSignature = false;

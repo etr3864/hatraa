@@ -1,58 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/services/db/prisma";
-import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-session";
-import { trackEventSafely } from "@/backend/services/analytics/track-event";
-import { SIGNATURE_PRICE } from "@/lib/constants";
+import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import { startCheckout } from "@/backend/services/payment/checkout";
+import { logExternalError } from "@/backend/services/logging/external-error";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { leadId: string };
-    const { leadId } = body;
+    const body = (await req.json()) as { leadId?: string };
+    const leadId = body.leadId?.trim();
 
     if (!leadId || leadId === "no-db") {
       return NextResponse.json({ error: "נדרש leadId" }, { status: 400 });
     }
 
-    const existing = await prisma.payment.findUnique({ where: { leadId } });
-    const sessionId = await resolveAnalyticsSessionId(req, leadId);
-
-    if (existing?.status === "completed" || existing?.status === "mock") {
-      if (sessionId) {
-        await trackEventSafely({
-          sessionId,
-          leadId,
-          type: "PAYMENT_COMPLETED",
-        });
-      }
-      return NextResponse.json({ success: true, alreadyPaid: true });
+    const sessionId = getAnalyticsSessionId(req);
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        analyticsSessionId: true,
+      },
+    });
+    if (!lead) {
+      return NextResponse.json({ error: "הליד לא נמצא" }, { status: 404 });
+    }
+    if (!sessionId || lead.analyticsSessionId !== sessionId) {
+      return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
     }
 
-    const payment = await prisma.payment.upsert({
-      where: { leadId },
-      create: {
-        leadId,
-        amount: SIGNATURE_PRICE,
-        status: "mock",
-        paidAt: new Date(),
-      },
-      update: {
-        amount: SIGNATURE_PRICE,
-        status: "mock",
-        paidAt: new Date(),
+    const result = await startCheckout({
+      leadId,
+      customer: {
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
       },
     });
 
-    if (sessionId) {
-      await trackEventSafely({
-        sessionId,
-        leadId,
-        type: "PAYMENT_COMPLETED",
-      });
-    }
-
-    return NextResponse.json({ success: true, paymentId: payment.id });
+    return NextResponse.json(result);
   } catch (err) {
-    console.error("[payment]", err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: "אירעה שגיאה, נסה שוב." }, { status: 500 });
+    logExternalError("payment:start", err);
+    const message = err instanceof Error ? err.message : "";
+    const isConfigError = /is not set|Unsupported PAYMENT_PROVIDER/.test(message);
+    return NextResponse.json(
+      {
+        error: isConfigError
+          ? "סליקה אינה מוגדרת כרגע."
+          : "לא הצלחנו לפתוח דף תשלום. נסה שוב.",
+      },
+      { status: 500 }
+    );
   }
 }

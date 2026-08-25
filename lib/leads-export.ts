@@ -39,7 +39,7 @@ export function buildLeadsCsv(leads: Lead[]): string {
   const rows = leads.map((lead) => {
     const letter = lead.letter;
     const paid =
-      lead.payment?.status === "completed" || lead.payment?.status === "mock";
+      lead.payment?.status === "completed";
     const evidenceList = lead.evidence ?? [];
     const evidenceDetail = evidenceList
       .map((e) => {

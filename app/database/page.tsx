@@ -519,8 +519,7 @@ function LeadRow({
   onToggleSelect: () => void;
   onSelect: () => void;
 }) {
-  const paid =
-    lead.payment?.status === "completed" || lead.payment?.status === "mock";
+  const paid = lead.payment?.status === "completed";
 
   return (
     <tr

@@ -4,16 +4,22 @@ import { IconSignature } from "@tabler/icons-react";
 import { attorneyShortLabel } from "@/lib/attorney";
 
 interface AttorneyUpgradeOverlayProps {
-  step: "pay" | "rewrite";
+  step: "pay" | "processing" | "rewrite";
 }
 
 export function AttorneyUpgradeOverlay({ step }: AttorneyUpgradeOverlayProps) {
   const title =
-    step === "pay" ? "מאשר תשלום..." : `מנסח מחדש בשם ${attorneyShortLabel()}`;
+    step === "pay"
+      ? "מעביר לתשלום..."
+      : step === "processing"
+        ? "מעבד תשלום..."
+        : `מנסח מחדש בשם ${attorneyShortLabel()}`;
   const subtitle =
     step === "pay"
-      ? "רגע אחד, מעביר לאישור"
-      : "שומרים על העובדות והחוקים — משנים רק ללשון ייצוג";
+      ? "רגע אחד, פותחים דף סליקה מאובטח"
+      : step === "processing"
+        ? "ממתינים לאישור התשלום מהספק. החתימה תשוחרר רק אחרי אישור שרת."
+        : "שומרים על העובדות והחוקים — משנים רק ללשון ייצוג";
 
   return (
     <div

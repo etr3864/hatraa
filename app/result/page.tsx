@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LetterDisplay } from "@/components/result/LetterDisplay";
 import { UpsellBlock } from "@/components/result/UpsellBlock";
-import { DownloadSection } from "@/components/result/DownloadSection";
+import {
+  DownloadSection,
+  downloadLetterPdf,
+} from "@/components/result/DownloadSection";
 import { AttorneyUpgradeOverlay } from "@/components/result/AttorneyUpgradeOverlay";
 import { LetterNotSavedWarning } from "@/components/result/LetterNotSavedWarning";
 import { LeaveLetterDialog } from "@/components/result/LeaveLetterDialog";
+import { Button } from "@/components/ui/Button";
 import { IconCheck, IconArrowRight } from "@tabler/icons-react";
 import { attorneyShortLabel } from "@/lib/attorney";
 import { trackClientEvent } from "@/lib/analytics";
@@ -24,15 +28,39 @@ import {
 import type { AttorneyRewriteJobResult } from "@/backend/services/jobs/types";
 
 type LetterResult = StoredLetterResult;
-
 type UpsellState = "pending" | "accepted" | "declined";
+type UpgradeStep = "pay" | "processing" | "rewrite";
+
+const POLL_INTERVAL_MS = 2000;
 
 export default function ResultPage() {
+  return (
+    <Suspense fallback={<ResultPageFallback />}>
+      <ResultPageContent />
+    </Suspense>
+  );
+}
+
+function ResultPageFallback() {
+  return (
+    <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
+      <div className="w-10 h-10 rounded-full border-2 border-[var(--color-accent)]/20 border-t-[var(--color-accent)] animate-spin" />
+    </div>
+  );
+}
+
+function ResultPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentReturn = searchParams.get("payment");
   const [result, setResult] = useState<LetterResult | null>(null);
   const [upsellState, setUpsellState] = useState<UpsellState>("pending");
   const [isUpgrading, setIsUpgrading] = useState(false);
-  const [upgradeStep, setUpgradeStep] = useState<"pay" | "rewrite" | null>(null);
+  const [upgradeStep, setUpgradeStep] = useState<UpgradeStep | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [ignoreReturnFailure, setIgnoreReturnFailure] = useState(false);
+  const autoDownloaded = useRef(false);
+  const trackedPaymentFailure = useRef(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -52,42 +80,113 @@ export default function ResultPage() {
     localStorage.setItem(LETTER_RESULT_KEY, JSON.stringify(next));
   }, []);
 
+  const downloadSignedPdf = useCallback((current: LetterResult) => {
+    if (autoDownloaded.current) return;
+    autoDownloaded.current = true;
+    void downloadLetterPdf({
+      leadId: current.leadId,
+      fileName: current.fileName,
+      content: current.content,
+      letterInput: current.letterInput,
+      withSignature: true,
+    }).catch((error) => {
+      console.error("Auto PDF download failed:", error);
+    });
+  }, []);
+
+  const markPaymentFailed = useCallback((leadId: string, message: string) => {
+    if (!trackedPaymentFailure.current) {
+      trackedPaymentFailure.current = true;
+      trackClientEvent("PAYMENT_FAILED", { entityId: leadId });
+    }
+    setPaymentError(message);
+    setIsUpgrading(false);
+    setUpgradeStep(null);
+  }, []);
+
   const isPaid = !!result?.attorneyVerified;
   const { dialogOpen, requestLeave, cancelLeave, confirmLeave } = useLeaveGuard({
     enabled: !!result,
     isPaid,
   });
 
-  const runAttorneyRewrite = useCallback(async (
-    current: LetterResult,
-    signal?: AbortSignal
-  ) => {
-    const rewritten = await runProcessingJob<AttorneyRewriteJobResult>({
-      scope: `attorney-rewrite:${current.leadId}`,
-      type: "ATTORNEY_REWRITE",
-      payload: {
-        leadId: current.leadId,
-        content: current.content,
-        letterInput: current.letterInput,
-      },
-      signal,
-    });
-    persistResult({
-      ...current,
-      content: rewritten.content,
-      attorneyVerified: true,
-    });
-    setUpsellState("accepted");
-  }, [persistResult]);
+  const clearPaymentQuery = useCallback(() => {
+    router.replace("/result", { scroll: false });
+  }, [router]);
+
+  const runAttorneyRewrite = useCallback(
+    async (current: LetterResult, signal?: AbortSignal) => {
+      const rewritten = await runProcessingJob<AttorneyRewriteJobResult>({
+        scope: `attorney-rewrite:${current.leadId}`,
+        type: "ATTORNEY_REWRITE",
+        payload: {
+          leadId: current.leadId,
+          content: current.content,
+          letterInput: current.letterInput,
+        },
+        signal,
+      });
+      persistResult({
+        ...current,
+        content: rewritten.content,
+        attorneyVerified: true,
+      });
+      setUpsellState("accepted");
+    },
+    [persistResult]
+  );
+
+  const startCheckout = useCallback(
+    async (current: LetterResult) => {
+      trackClientEvent("PAYMENT_STARTED", {
+        entityId: current.leadId,
+        category: current.letterInput.category,
+        senderType: current.letterInput.senderType,
+        hasEvidence: !!current.letterInput.evidence?.length,
+      });
+      trackedPaymentFailure.current = false;
+      setIgnoreReturnFailure(true);
+      setPaymentError(null);
+      clearPaymentQuery();
+      setIsUpgrading(true);
+      setUpgradeStep("pay");
+      try {
+        const payRes = await fetch("/api/payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leadId: current.leadId }),
+        });
+        const body = (await payRes.json()) as {
+          checkoutUrl?: string;
+          alreadyPaid?: boolean;
+          error?: string;
+        };
+        if (!payRes.ok) {
+          throw new Error(body.error ?? "שגיאה בפתיחת התשלום");
+        }
+        if (body.alreadyPaid) {
+          setUpgradeStep("processing");
+          router.replace("/result?payment=success", { scroll: false });
+          return;
+        }
+        if (!body.checkoutUrl) {
+          throw new Error("לא התקבל קישור תשלום");
+        }
+        window.location.assign(body.checkoutUrl);
+      } catch (err) {
+        setIsUpgrading(false);
+        setUpgradeStep(null);
+        setPaymentError(
+          err instanceof Error ? err.message : "שגיאה בפתיחת התשלום"
+        );
+      }
+    },
+    [clearPaymentQuery, router]
+  );
 
   useEffect(() => {
-    if (
-      !result ||
-      result.attorneyVerified ||
-      !hasPendingProcessingJob(`attorney-rewrite:${result.leadId}`)
-    ) {
-      return;
-    }
+    if (!result || result.attorneyVerified || paymentReturn) return;
+    if (!hasPendingProcessingJob(`attorney-rewrite:${result.leadId}`)) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
@@ -97,7 +196,7 @@ export default function ResultPage() {
         await runAttorneyRewrite(result, controller.signal);
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
-          alert(
+          setPaymentError(
             error instanceof Error
               ? error.message
               : "שחזור השכתוב נכשל. נסה שוב."
@@ -114,35 +213,103 @@ export default function ResultPage() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [result, runAttorneyRewrite]);
+  }, [paymentReturn, result, runAttorneyRewrite]);
+
+  useEffect(() => {
+    if (!result || paymentReturn !== "failure" || ignoreReturnFailure) {
+      return;
+    }
+    if (trackedPaymentFailure.current) return;
+    trackedPaymentFailure.current = true;
+    trackClientEvent("PAYMENT_FAILED", { entityId: result.leadId });
+  }, [ignoreReturnFailure, paymentReturn, result]);
+
+  useEffect(() => {
+    if (!result || paymentReturn !== "success") return;
+
+    if (result.attorneyVerified) {
+      downloadSignedPdf(result);
+      clearPaymentQuery();
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      const res = await fetch(
+        `/api/payment/status?leadId=${encodeURIComponent(result.leadId)}`
+      );
+      if (!res.ok) {
+        throw new Error("לא הצלחנו לבדוק את סטטוס התשלום");
+      }
+      const body = (await res.json()) as {
+        status: string;
+        rewriteReady: boolean;
+        content?: string;
+      };
+      if (cancelled) return false;
+      if (body.status === "failed") {
+        markPaymentFailed(
+          result.leadId,
+          "התשלום נכשל. אפשר לנסות שוב בלי לאבד את המכתב."
+        );
+        clearPaymentQuery();
+        return true;
+      }
+      if (body.status === "completed" && body.rewriteReady && body.content) {
+        const next = {
+          ...result,
+          content: body.content,
+          attorneyVerified: true,
+        };
+        persistResult(next);
+        setUpsellState("accepted");
+        downloadSignedPdf(next);
+        clearPaymentQuery();
+        return true;
+      }
+      if (body.status === "completed") {
+        setUpgradeStep("rewrite");
+      }
+      return false;
+    };
+
+    let timer: number | undefined;
+    const tick = async () => {
+      try {
+        const done = await poll();
+        if (!done && !cancelled) {
+          timer = window.setTimeout(tick, POLL_INTERVAL_MS);
+        } else if (done) {
+          setIsUpgrading(false);
+          setUpgradeStep(null);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setPaymentError(
+          error instanceof Error ? error.message : "שגיאה בבדיקת התשלום"
+        );
+        setIsUpgrading(false);
+        setUpgradeStep(null);
+      }
+    };
+    void tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [
+    clearPaymentQuery,
+    downloadSignedPdf,
+    markPaymentFailed,
+    persistResult,
+    paymentReturn,
+    result,
+  ]);
 
   const handleAcceptUpsell = async () => {
     if (!result) return;
-    trackClientEvent("PAYMENT_STARTED", {
-      entityId: result.leadId,
-      category: result.letterInput.category,
-      senderType: result.letterInput.senderType,
-      hasEvidence: !!result.letterInput.evidence?.length,
-    });
-    setIsUpgrading(true);
-    setUpgradeStep("pay");
-    try {
-      const payRes = await fetch("/api/payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId: result.leadId }),
-      });
-      if (!payRes.ok) throw new Error("שגיאה בתשלום");
-
-      setUpgradeStep("rewrite");
-      await runAttorneyRewrite(result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "שגיאה בעיבוד. נסה שוב.";
-      alert(msg);
-    } finally {
-      setIsUpgrading(false);
-      setUpgradeStep(null);
-    }
+    await startCheckout(result);
   };
 
   const handleDeclineUpsell = () => {
@@ -159,7 +326,21 @@ export default function ResultPage() {
 
   const showDownload = upsellState === "accepted" || upsellState === "declined";
   const withSignature = upsellState === "accepted";
-  const attorneyVerified = upsellState === "accepted" && !!result.attorneyVerified;
+  const attorneyVerified =
+    upsellState === "accepted" && !!result.attorneyVerified;
+  const waitingForProvider =
+    paymentReturn === "success" && !result.attorneyVerified;
+  const overlayStep: UpgradeStep | null =
+    isUpgrading && upgradeStep
+      ? upgradeStep
+      : waitingForProvider
+        ? (upgradeStep ?? "processing")
+        : null;
+  const queryFailure =
+    paymentReturn === "failure" && !ignoreReturnFailure
+      ? "התשלום לא הושלם. אפשר לנסות שוב בלי לאבד את המכתב."
+      : null;
+  const displayError = paymentError ?? queryFailure;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]" dir="rtl">
@@ -198,8 +379,15 @@ export default function ResultPage() {
           <LetterNotSavedWarning />
         </div>
 
-        {isUpgrading && upgradeStep && (
-          <AttorneyUpgradeOverlay step={upgradeStep} />
+        {overlayStep && <AttorneyUpgradeOverlay step={overlayStep} />}
+
+        {displayError && (
+          <div className="p-5 rounded-xl bg-red-500/10 border border-red-500/20 flex flex-col gap-3">
+            <p className="text-sm text-[var(--color-ink)]">{displayError}</p>
+            <Button variant="primary" onClick={handleAcceptUpsell}>
+              נסה תשלום שוב
+            </Button>
+          </div>
         )}
 
         <LetterDisplay
@@ -208,12 +396,17 @@ export default function ResultPage() {
           senderPhone={result.letterInput.senderPhone}
           senderEmail={result.letterInput.senderEmail}
           respondentName={result.letterInput.respondentName}
-          withSignatureBlur={upsellState === "pending" && !isUpgrading}
+          withSignatureBlur={
+            upsellState === "pending" && !isUpgrading && !waitingForProvider
+          }
           attorneyVerified={attorneyVerified}
           leadId={result.leadId}
         />
 
-        {upsellState === "pending" && !isUpgrading && (
+        {upsellState === "pending" &&
+          !isUpgrading &&
+          !waitingForProvider &&
+          !displayError && (
           <UpsellBlock
             upsellMessage={result.upsellMessage}
             onAccept={handleAcceptUpsell}
@@ -250,7 +443,7 @@ export default function ResultPage() {
           </div>
         )}
 
-        {showDownload && !isUpgrading && (
+        {showDownload && !isUpgrading && !waitingForProvider && (
           <DownloadSection
             leadId={result.leadId}
             fileName={result.fileName}

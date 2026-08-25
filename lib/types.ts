@@ -8,7 +8,7 @@ export type Category =
   | "authorities";
 export type Tone = "firm" | "businesslike" | "conciliatory" | "threatening";
 export type Goal = "compensation" | "fix" | "apology" | "intimidate";
-export type PaymentStatus = "pending" | "completed" | "mock";
+export type PaymentStatus = "pending" | "completed" | "failed" | "mock";
 
 export interface ExtractedData {
   respondentName: string;

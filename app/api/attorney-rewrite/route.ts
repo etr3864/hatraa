@@ -5,11 +5,10 @@ import { rewriteAsAttorney } from "@/backend/services/ai/rewrite-as-attorney";
 import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-session";
 import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
+import { isPaidPaymentStatus } from "@/backend/services/payment";
 import type { LetterInput } from "@/lib/types";
 
 export const maxDuration = 60;
-
-const PAID_STATUSES = new Set(["completed", "mock"]);
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const payment = await prisma.payment.findUnique({ where: { leadId } });
-    if (!payment || !PAID_STATUSES.has(payment.status)) {
+    if (!isPaidPaymentStatus(payment?.status)) {
       return NextResponse.json(
         { error: "נדרש תשלום לפני ניסוח בשם עו\"ד" },
         { status: 403 }

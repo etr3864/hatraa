@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadAttorneySignatureDataUrl } from "@/backend/services/pdf/attorney-signature";
 import { prisma } from "@/backend/services/db/prisma";
 import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import { isPaidPaymentStatus } from "@/backend/services/payment";
 import {
   checkRateLimit,
   getClientIp,
 } from "@/backend/services/security/rate-limiter";
-
-const PAID_STATUSES = new Set(["completed", "mock"]);
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request.headers);
@@ -38,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 
   const payment = await prisma.payment.findUnique({ where: { leadId } });
-  if (!payment || !PAID_STATUSES.has(payment.status)) {
+  if (!isPaidPaymentStatus(payment?.status)) {
     return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
   }
 

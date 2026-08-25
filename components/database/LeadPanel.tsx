@@ -136,7 +136,7 @@ export function LeadPanel({ lead, token, onClose, onSaved, onDeleted }: LeadPane
   };
 
   const paid =
-    lead.payment?.status === "completed" || lead.payment?.status === "mock";
+    lead.payment?.status === "completed";
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" dir="rtl">

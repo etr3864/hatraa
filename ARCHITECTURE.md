@@ -12,7 +12,7 @@
 | | |
 |--|--|
 | **מודל עסקי** | לידים חינם → אפסייל חתימת עו״ד ב־**250 ₪** (`SIGNATURE_PRICE`) |
-| **תשלום** | כרגע **mock בלבד** (`Payment.status = "mock"`) — אין סליקה אמיתית |
+| **תשלום** | PayPlus Payment Page. מקור האמת: webhook. `Payment.status = completed` בלבד משחרר חתימה |
 | **חשבונות משתמש** | אין. זיהוי לפי cookie סשן + `localStorage` |
 | **מי מרוויח** | בעל המוצר (לידים למכירה / שותפות עם עו״ד) + עמלת חתימה |
 
@@ -126,7 +126,9 @@ Result (/result)  ← localStorage["letterResult"]
     ├─ Upsell pending (מכתב מטושטש חתימה)
     │     ├─ Decline → הורדת PDF לא חתום
     │     └─ Accept
-    │           → POST /api/payment   (mock)
+    │           → POST /api/payment   (PayPlus generateLink)
+    │           → redirect לדף סליקה
+    │           → webhook מסמן completed
     │           → ProcessingJob: ATTORNEY_REWRITE
     │           → PDF חתום (letterhead + קשקוש + חתימה)
     │
@@ -135,11 +137,11 @@ Result (/result)  ← localStorage["letterResult"]
 
 ### PDF חתום מול לא חתום
 
-| | לא חתום | חתום (אחרי תשלום mock) |
+| | לא חתום | חתום (אחרי תשלום PayPlus) |
 |--|---------|-------------------------|
 | Letterhead עו״ד | לא | כן — "שועלי משרד עו״ד" |
 | חתימה | שם השולח | "בכבוד רב" + משרד + עורך דין צבר שועלי + קשקוש |
-| שער אבטחה | — | `Payment.status ∈ {completed, mock}` — **לא** סומכים על `withSignature` מהלקוח |
+| שער אבטחה | — | `Payment.status = completed` בלבד. webhook הוא מקור האמת — לא query `?payment=success` |
 
 ---
 
@@ -209,7 +211,7 @@ AnalyticsSession ──┬── Lead ──┬── Letter (1:1)
 |------|--------|
 | `Lead` | איש קשר (PII מוצפן) + קישור לסשן |
 | `Letter` | תוכן מכתב, קטגוריה, טון, audit (`knowledgeVersion`, `verified`…) |
-| `Payment` | סכום + סטטוס (`mock` / `completed` …) |
+| `Payment` | סכום, סטטוס (`pending` / `completed` / `failed`), מזהה PayPlus |
 | `Evidence` | מטא־דאטה + מפתח R2 |
 | `ProcessingJob` | תור רקע מוצפן |
 | `AnalyticsSession` / `AnalyticsEvent` | משפך + UTM |
@@ -269,10 +271,10 @@ APIs מאחורי `validateAdminToken`:
 ## 12. Analytics
 
 **Client** (מאחורי הסכמת cookies):  
-`SITE_VISIT`, `WIZARD_STARTED`, `DETAILS_COMPLETED`, `PAYMENT_STARTED`
+`SITE_VISIT`, `WIZARD_STARTED`, `DETAILS_COMPLETED`, `PAYMENT_STARTED`, `PAYMENT_FAILED`
 
 **Server:**  
-`EXTRACTION_COMPLETED`, `LETTER_GENERATED`, `PAYMENT_COMPLETED`, `ATTORNEY_REWRITE_COMPLETED`, `PDF_DOWNLOADED`
+`EXTRACTION_COMPLETED`, `LETTER_GENERATED`, `PAYMENT_COMPLETED`, `PAYMENT_FAILED`, `ATTORNEY_REWRITE_COMPLETED`, `PDF_DOWNLOADED`
 
 ---
 
@@ -283,7 +285,9 @@ APIs מאחורי `validateAdminToken`:
 | `POST /api/jobs` | יצירת ProcessingJob |
 | `GET /api/jobs/[id]` | סטטוס + תוצאה |
 | `POST /api/jobs/uploads` | העלאה זמנית ל־R2 |
-| `POST /api/payment` | סימון תשלום mock |
+| `POST /api/payment` | יצירת לינק PayPlus (לא מסמן תשלום) |
+| `GET /api/payment/status` | poll לסטטוס תשלום + מוכנות שכתוב |
+| `POST/GET /api/payment/webhook` | מקור אמת: מאמת HMAC ומסמן completed |
 | `POST /api/pdf` | ייצור PDF (חתימה רק אחרי payment) |
 | `GET /api/attorney-signature` | data-URL חתימה ל־UI (session+paid) |
 | `POST /api/extract` · `/api/generate` · `/api/attorney-rewrite` | נתיבים ישנים/גיבוי — ה־wizard המודרני עובר ב־jobs |
@@ -304,6 +308,7 @@ APIs מאחורי `validateAdminToken`:
 | Secrets | `ADMIN_SECRET`, `ENCRYPTION_KEY` |
 | R2 | `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` |
 | Site | `NEXT_PUBLIC_SITE_URL` |
+| PayPlus | `PAYPLUS_API_KEY`, `PAYPLUS_SECRET_KEY`, `PAYPLUS_PAYMENT_PAGE_UID`, `NEXT_PUBLIC_SITE_URL2` (סליקה בלבד; לא מחליף את `NEXT_PUBLIC_SITE_URL`) |
 
 ### מומלץ מאוד
 
@@ -319,6 +324,8 @@ APIs מאחורי `validateAdminToken`:
 - `NEXT_PUBLIC_ATTORNEY_*` / `NEXT_PUBLIC_BUSINESS_*` — override לפרטי עו״ד/עסק
 - `CHROMIUM_REMOTE_EXEC_PATH` — CDN ל־Chromium pack ב־Vercel
 - `R2_ACCOUNT_ID` — מופיע ב־example; הקוד משתמש ב־`R2_ENDPOINT` + keys
+- `PAYPLUS_BASE_URL` — ברירת מחדל: `https://restapi.payplus.co.il/api/v1.0`
+- `PAYMENT_PROVIDER` — ברירת מחדל: `payplus`
 
 רשימת שלד: [`.env.local.example`](./.env.local.example).
 
@@ -338,7 +345,7 @@ APIs מאחורי `validateAdminToken`:
 ## 16. החלטות חשובות / מלכודות
 
 1. **`after()` הוא נתיב הביצוע העיקרי** — Inngest משפר עמידות, לא חובה ל־MVP.
-2. **תשלום fake** — כל "שולם" הוא `mock`; gate החתימה תלוי בזה.
+2. **תשלום אמיתי בלבד** — חתימה משתחררת רק אחרי webhook מאומת (`completed`). `mock` היסטורי לא פותח שער.
 3. **מצב התוצאה ב־localStorage** — לא חשבון משתמש; leave-guard + באנר שחזור ב־wizard מפצים חלקית.
 4. **אין חתימה ב־`public/`** — README ישן טעה; רק env/R2 פרטי + scribble ב־repo תחת `backend/services/pdf/assets/`.
 5. **Verify דטרמיניסטי** — לא LLM; ציטוטים שבורים נחתכים.
