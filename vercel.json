@@ -7,6 +7,23 @@
     "app/api/attorney-rewrite/route.ts": {
       "memory": 1024,
       "maxDuration": 60
+    },
+    "app/api/jobs/route.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    },
+    "app/api/jobs/[id]/execute/route.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    },
+    "app/api/payment/webhook/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/payment/stream/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/inngest/route.ts": {
+      "maxDuration": 300
     }
   }
 }

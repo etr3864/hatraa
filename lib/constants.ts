@@ -41,6 +41,12 @@ export const LOADER_MIN_MS = 40000;
 export const LOADER_MAX_MS = 55000;
 
 export const RATE_LIMIT_PER_DAY = 10;
+export const PAYMENT_START_LIMIT_PER_DAY = 20;
+export const PAYMENT_STREAM_LIMIT_PER_DAY = 30;
+export const PAYMENT_RETRY_LIMIT_PER_DAY = 10;
+export const UPLOAD_LIMIT_PER_DAY = 30;
+/** Reuse open PayPlus link instead of issuing a duplicate checkout. */
+export const PENDING_CHECKOUT_REUSE_MS = 15 * 60 * 1000;
 
 export const SITE_NAME = "התראה בקליק";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://hatraa.co.il";

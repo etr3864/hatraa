@@ -115,6 +115,8 @@ model Payment {
   provider                String    @default("payplus")
   externalRequestUid      String?
   externalTransactionUid  String?
+  checkoutUrl             String?
+  checkoutIssuedAt        DateTime?
   failureReason           String?
   paidAt                  DateTime?
 

@@ -48,7 +48,7 @@ export async function setJobQueueEvent(
   });
 }
 
-const STALE_PROCESSING_MS = 3 * 60 * 1000;
+const STALE_PROCESSING_MS = 90 * 1000;
 
 export async function claimJobForProcessing(
   jobId: string

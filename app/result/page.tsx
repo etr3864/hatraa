@@ -22,6 +22,10 @@ import {
 } from "@/lib/letter-result";
 import { useLeaveGuard } from "@/hooks/use-leave-guard";
 import {
+  usePaymentFulfillment,
+  type PaymentFulfillmentSnapshot,
+} from "@/hooks/use-payment-fulfillment";
+import {
   hasPendingProcessingJob,
   runProcessingJob,
 } from "@/lib/processing-jobs";
@@ -30,8 +34,7 @@ import type { AttorneyRewriteJobResult } from "@/backend/services/jobs/types";
 type LetterResult = StoredLetterResult;
 type UpsellState = "pending" | "accepted" | "declined";
 type UpgradeStep = "pay" | "processing" | "rewrite";
-
-const POLL_INTERVAL_MS = 2000;
+type RetryMode = "payment" | "rewrite";
 
 export default function ResultPage() {
   return (
@@ -59,6 +62,8 @@ function ResultPageContent() {
   const [upgradeStep, setUpgradeStep] = useState<UpgradeStep | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [ignoreReturnFailure, setIgnoreReturnFailure] = useState(false);
+  const [retryMode, setRetryMode] = useState<RetryMode>("payment");
+  const [fulfillmentAttempt, setFulfillmentAttempt] = useState(0);
   const autoDownloaded = useRef(false);
   const trackedPaymentFailure = useRef(false);
 
@@ -228,86 +233,119 @@ function ResultPageContent() {
 
   useEffect(() => {
     if (!result || paymentReturn !== "success") return;
-
     if (result.attorneyVerified) {
       downloadSignedPdf(result);
       clearPaymentQuery();
-      return;
     }
+  }, [clearPaymentQuery, downloadSignedPdf, paymentReturn, result]);
 
-    let cancelled = false;
-    const poll = async () => {
-      const res = await fetch(
-        `/api/payment/status?leadId=${encodeURIComponent(result.leadId)}`
-      );
-      if (!res.ok) {
-        throw new Error("לא הצלחנו לבדוק את סטטוס התשלום");
+  const handleFulfillmentUpdate = useCallback(
+    (snapshot: PaymentFulfillmentSnapshot) => {
+      if (
+        snapshot.phase === "rewrite_processing" ||
+        snapshot.phase === "rewrite_queued"
+      ) {
+        setIsUpgrading(true);
+        setUpgradeStep("rewrite");
+        return;
       }
-      const body = (await res.json()) as {
-        status: string;
-        rewriteReady: boolean;
-        content?: string;
-      };
-      if (cancelled) return false;
-      if (body.status === "failed") {
-        markPaymentFailed(
-          result.leadId,
-          "התשלום נכשל. אפשר לנסות שוב בלי לאבד את המכתב."
-        );
-        clearPaymentQuery();
-        return true;
+      if (
+        snapshot.phase === "awaiting_payment" ||
+        snapshot.phase === "paid_pending_rewrite"
+      ) {
+        setIsUpgrading(true);
+        setUpgradeStep("processing");
       }
-      if (body.status === "completed" && body.rewriteReady && body.content) {
+    },
+    []
+  );
+
+  const handleFulfillmentTerminal = useCallback(
+    (snapshot: PaymentFulfillmentSnapshot) => {
+      if (!result) return;
+      if (snapshot.phase === "rewrite_ready" && snapshot.content) {
         const next = {
           ...result,
-          content: body.content,
+          content: snapshot.content,
           attorneyVerified: true,
         };
         persistResult(next);
         setUpsellState("accepted");
         downloadSignedPdf(next);
         clearPaymentQuery();
-        return true;
+        setIsUpgrading(false);
+        setUpgradeStep(null);
+        return;
       }
-      if (body.status === "completed") {
-        setUpgradeStep("rewrite");
+      if (snapshot.phase === "payment_failed") {
+        setRetryMode("payment");
+        markPaymentFailed(
+          result.leadId,
+          "התשלום נכשל. אפשר לנסות שוב בלי לאבד את המכתב."
+        );
+        clearPaymentQuery();
+        return;
       }
-      return false;
-    };
-
-    let timer: number | undefined;
-    const tick = async () => {
-      try {
-        const done = await poll();
-        if (!done && !cancelled) {
-          timer = window.setTimeout(tick, POLL_INTERVAL_MS);
-        } else if (done) {
-          setIsUpgrading(false);
-          setUpgradeStep(null);
-        }
-      } catch (error) {
-        if (cancelled) return;
+      if (
+        snapshot.phase === "rewrite_failed" ||
+        snapshot.phase === "timeout" ||
+        snapshot.phase === "error"
+      ) {
+        setRetryMode("rewrite");
         setPaymentError(
-          error instanceof Error ? error.message : "שגיאה בבדיקת התשלום"
+          snapshot.rewriteError ??
+            (snapshot.phase === "timeout"
+              ? "השכתוב לוקח יותר מדי זמן. התשלום אושר — לחץ לנסות שוב."
+              : "שכתוב המכתב נכשל. התשלום אושר — אפשר לנסות שוב.")
         );
         setIsUpgrading(false);
         setUpgradeStep(null);
+        clearPaymentQuery();
       }
-    };
-    void tick();
+    },
+    [
+      clearPaymentQuery,
+      downloadSignedPdf,
+      markPaymentFailed,
+      persistResult,
+      result,
+    ]
+  );
 
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [
-    clearPaymentQuery,
-    downloadSignedPdf,
-    markPaymentFailed,
-    persistResult,
-    paymentReturn,
-    result,
-  ]);
+  usePaymentFulfillment({
+    leadId: result?.leadId ?? null,
+    enabled: Boolean(
+      result && paymentReturn === "success" && !result.attorneyVerified
+    ),
+    streamKey: fulfillmentAttempt,
+    onUpdate: handleFulfillmentUpdate,
+    onTerminal: handleFulfillmentTerminal,
+  });
+
+  const retryRewrite = useCallback(async () => {
+    if (!result) return;
+    setPaymentError(null);
+    setIsUpgrading(true);
+    setUpgradeStep("processing");
+    try {
+      const res = await fetch("/api/payment/retry-rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: result.leadId }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(body.error ?? "לא הצלחנו להפעיל שכתוב מחדש");
+      }
+      setFulfillmentAttempt((attempt) => attempt + 1);
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error ? error.message : "לא הצלחנו להפעיל שכתוב מחדש"
+      );
+      setIsUpgrading(false);
+      setUpgradeStep(null);
+    }
+  }, [result]);
 
   const handleAcceptUpsell = async () => {
     if (!result) return;
@@ -386,8 +424,13 @@ function ResultPageContent() {
         {displayError && (
           <div className="p-5 rounded-xl bg-red-500/10 border border-red-500/20 flex flex-col gap-3">
             <p className="text-sm text-[var(--color-ink)]">{displayError}</p>
-            <Button variant="primary" onClick={handleAcceptUpsell}>
-              נסה תשלום שוב
+            <Button
+              variant="primary"
+              onClick={
+                retryMode === "rewrite" ? retryRewrite : handleAcceptUpsell
+              }
+            >
+              {retryMode === "rewrite" ? "נסה שכתוב שוב" : "נסה תשלום שוב"}
             </Button>
           </div>
         )}

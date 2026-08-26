@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { ANALYTICS_SESSION_COOKIE } from "@/backend/services/analytics/constants";
 import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
 import { ensureAnalyticsSession } from "@/backend/services/analytics/track-event";
-import { prisma } from "@/backend/services/db/prisma";
 import { scheduleProcessingJob } from "@/backend/services/jobs/dispatch";
 import { createProcessingJob } from "@/backend/services/jobs/repository";
 import type { ProcessingJobInput } from "@/backend/services/jobs/types";
+import { assertLeadSessionAccess } from "@/backend/services/security/lead-access";
 import { validateIdempotencyKey } from "@/backend/services/jobs/validation/common";
 import { validateExtractionInput } from "@/backend/services/jobs/validation/extraction";
 import { validateGenerationInput } from "@/backend/services/jobs/validation/generation";
@@ -95,11 +95,7 @@ function validatePayload(
 }
 
 async function assertLeadOwnership(leadId: string, sessionId: string) {
-  const lead = await prisma.lead.findFirst({
-    where: { id: leadId, analyticsSessionId: sessionId },
-    select: { id: true },
-  });
-  if (!lead) throw new Error("המכתב לא נמצא עבור ההפעלה הנוכחית");
+  await assertLeadSessionAccess(leadId, sessionId);
 }
 
 function setSessionCookie(response: NextResponse, sessionId: string) {

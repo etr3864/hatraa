@@ -8,6 +8,8 @@ import {
   isR2Configured,
   uploadEvidenceObject,
 } from "@/backend/services/storage/r2";
+import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
+import { UPLOAD_LIMIT_PER_DAY } from "@/lib/constants";
 import {
   isSupportedEvidenceMime,
   normalizeEvidenceMime,
@@ -34,6 +36,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const ip = getClientIp(request.headers);
+    const rate = await checkRateLimit(`upload:${ip}`, UPLOAD_LIMIT_PER_DAY);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: "הגעת למגבלת העלאות. נסה שוב מחר." },
+        { status: 429 }
+      );
+    }
+
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) {

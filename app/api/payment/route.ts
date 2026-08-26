@@ -4,9 +4,20 @@ import { getAnalyticsSessionId } from "@/backend/services/analytics/request-sess
 import { startCheckout } from "@/backend/services/payment/checkout";
 import { logExternalError } from "@/backend/services/logging/external-error";
 import { decryptLeadPii } from "@/backend/services/security/encryption";
+import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
+import { PAYMENT_START_LIMIT_PER_DAY } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req.headers);
+    const rate = await checkRateLimit(`payment-start:${ip}`, PAYMENT_START_LIMIT_PER_DAY);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: "יותר מדי ניסיונות תשלום. נסה שוב מאוחר יותר." },
+        { status: 429 }
+      );
+    }
+
     const body = (await req.json()) as { leadId?: string };
     const leadId = body.leadId?.trim();
 

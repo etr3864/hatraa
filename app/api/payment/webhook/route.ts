@@ -9,10 +9,6 @@ import {
 import { resolvePaymentProvider } from "@/backend/services/payment";
 import { WebhookAuthError } from "@/backend/services/payment/providers/payplus/client";
 
-export async function GET(req: NextRequest) {
-  return handleWebhook(req);
-}
-
 export async function POST(req: NextRequest) {
   return handleWebhook(req);
 }
@@ -32,7 +28,9 @@ async function handleWebhook(req: NextRequest) {
           type: "PAYMENT_COMPLETED",
         });
       }
-      await schedulePaidAttorneyRewrite(parsed.leadId);
+      if (!applied.alreadyProcessed) {
+        await schedulePaidAttorneyRewrite(parsed.leadId);
+      }
     }
 
     if (parsed.status === "failed" && !applied.alreadyProcessed) {
@@ -53,7 +51,7 @@ async function handleWebhook(req: NextRequest) {
     }
     logExternalError("payment:webhook", err);
     const message = err instanceof Error ? err.message : "";
-    const isClientError = /ליד|עסקת תשלום|סכום/.test(message);
+    const isClientError = /ליד|עסקת תשלום|סכום|מזהה/.test(message);
     return NextResponse.json(
       { error: isClientError ? message : "webhook failed" },
       { status: isClientError ? 400 : 500 }

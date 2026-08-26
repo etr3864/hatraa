@@ -5,32 +5,95 @@ import {
   PROCESS_JOB_EVENT,
 } from "@/backend/inngest/client";
 import { logExternalError } from "@/backend/services/logging/external-error";
+import { getServerPublicBaseUrl } from "@/backend/services/payment/server-base-url";
 import { executeProcessingJob } from "./execute-job";
 import { failJob, setJobQueueEvent } from "./repository";
 
-export function scheduleProcessingJob(job: ProcessingJob): void {
-  after(async () => {
-    try {
-      await executeProcessingJob(job.id);
-    } catch (error) {
-      logExternalError("jobs", error, {
-        jobId: job.id,
-        type: job.type,
-        userMessage: toHebrewError(error),
-      });
-      await failJob(
-        job.id,
-        toHebrewError(error) ?? "העיבוד נכשל. אפשר לנסות שוב."
-      );
-    }
-  });
+export type JobDispatchStrategy = "interactive" | "background";
 
-  void enqueueInngest(job).catch((error) => {
-    console.warn(
-      "[jobs] Inngest enqueue skipped/failed:",
-      error instanceof Error ? error.message : error
-    );
+interface ScheduleOptions {
+  /** interactive: after()+Inngest (wizard). background: queue only (webhook). */
+  strategy?: JobDispatchStrategy;
+}
+
+export function scheduleProcessingJob(
+  job: ProcessingJob,
+  options: ScheduleOptions = {}
+): void {
+  const strategy = options.strategy ?? "interactive";
+
+  if (strategy === "interactive") {
+    after(async () => {
+      await runJobSafely(job);
+    });
+  }
+
+  void dispatchBackgroundJob(job, strategy).catch((error) => {
+    logExternalError("jobs:dispatch", error, { jobId: job.id, strategy });
   });
+}
+
+async function dispatchBackgroundJob(
+  job: ProcessingJob,
+  strategy: JobDispatchStrategy
+): Promise<void> {
+  const hasInngest = Boolean(process.env.INNGEST_EVENT_KEY?.trim());
+  if (hasInngest) {
+    await enqueueInngest(job);
+    return;
+  }
+
+  if (strategy === "background") {
+    await wakeJobExecution(job.id);
+    return;
+  }
+
+  // interactive without Inngest: after() already handles execution
+}
+
+async function wakeJobExecution(jobId: string): Promise<void> {
+  const secret = process.env.ADMIN_SECRET?.trim();
+  let baseUrl: string;
+  try {
+    baseUrl = getServerPublicBaseUrl();
+  } catch (error) {
+    logExternalError("jobs:wake", error, { jobId });
+    return;
+  }
+  if (!secret) {
+    logExternalError("jobs:wake", new Error("ADMIN_SECRET is not set"), {
+      jobId,
+    });
+    return;
+  }
+
+  const response = await fetch(`${baseUrl}/api/jobs/${jobId}/execute`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}` },
+  });
+  if (!response.ok) {
+    logExternalError(
+      "jobs:wake",
+      new Error(`Job wake failed with status ${response.status}`),
+      { jobId }
+    );
+  }
+}
+
+async function runJobSafely(job: ProcessingJob): Promise<void> {
+  try {
+    await executeProcessingJob(job.id);
+  } catch (error) {
+    logExternalError("jobs", error, {
+      jobId: job.id,
+      type: job.type,
+      userMessage: toHebrewError(error),
+    });
+    await failJob(
+      job.id,
+      toHebrewError(error) ?? "העיבוד נכשל. אפשר לנסות שוב."
+    );
+  }
 }
 
 async function enqueueInngest(job: ProcessingJob): Promise<void> {

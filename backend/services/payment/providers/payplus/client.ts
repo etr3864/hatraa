@@ -65,23 +65,20 @@ export class PayPlusProvider implements PaymentProvider {
   }
 
   async verifyAndParseWebhook(req: Request): Promise<ParsedWebhook> {
-    const rawBody =
-      req.method === "GET"
-        ? JSON.stringify(Object.fromEntries(new URL(req.url).searchParams))
-        : await req.text();
+    if (req.method !== "POST") {
+      throw new WebhookAuthError();
+    }
+
+    const rawBody = await req.text();
     if (!verifyPayPlusWebhook(rawBody, req)) {
       throw new WebhookAuthError();
     }
 
     let parsed: unknown;
-    if (req.method === "GET") {
-      parsed = Object.fromEntries(new URL(req.url).searchParams);
-    } else {
-      try {
-        parsed = JSON.parse(rawBody);
-      } catch {
-        throw new Error("גוף הבקשה אינו תקין");
-      }
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch {
+      throw new Error("גוף הבקשה אינו תקין");
     }
 
     const payload = extractPayPlusWebhookPayload(parsed);

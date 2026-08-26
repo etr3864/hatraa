@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { prisma } from "@/backend/services/db/prisma";
 import { rewriteAsAttorney } from "@/backend/services/ai/rewrite-as-attorney";
-import { resolveAnalyticsSessionId } from "@/backend/services/analytics/request-session";
+import { getAnalyticsSessionId } from "@/backend/services/analytics/request-session";
 import { trackEventSafely } from "@/backend/services/analytics/track-event";
 import { checkRateLimit, getClientIp } from "@/backend/services/security/rate-limiter";
+import {
+  assertLeadSessionAccess,
+  LeadAccessError,
+} from "@/backend/services/security/lead-access";
 import { isPaidPaymentStatus } from "@/backend/services/payment";
 import type { LetterInput } from "@/lib/types";
 
@@ -36,6 +40,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "חסרים פרטי מכתב" }, { status: 400 });
     }
 
+    const sessionId = getAnalyticsSessionId(req);
+    await assertLeadSessionAccess(leadId, sessionId);
+
     const payment = await prisma.payment.findUnique({ where: { leadId } });
     if (!isPaidPaymentStatus(payment?.status)) {
       return NextResponse.json(
@@ -44,7 +51,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sessionId = await resolveAnalyticsSessionId(req, leadId);
     const result = await rewriteAsAttorney(content, letterInput, {
       sessionId,
       leadId,
@@ -85,6 +91,9 @@ export async function POST(req: NextRequest) {
       attorneyVerified: true,
     });
   } catch (err) {
+    if (err instanceof LeadAccessError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
     console.error(
       "[attorney-rewrite]",
       err instanceof Error ? err.stack || err.message : err
