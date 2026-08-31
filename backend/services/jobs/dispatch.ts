@@ -39,11 +39,15 @@ async function dispatchBackgroundJob(
 ): Promise<void> {
   const hasInngest = Boolean(process.env.INNGEST_EVENT_KEY?.trim());
   if (hasInngest) {
-    await enqueueInngest(job);
-    return;
+    try {
+      await enqueueInngest(job);
+    } catch (error) {
+      logExternalError("jobs:inngest", error, { jobId: job.id, strategy });
+    }
   }
 
   if (strategy === "background") {
+    // Always wake: claimJobForProcessing prevents double-run if Inngest also fires.
     await wakeJobExecution(job.id);
     return;
   }

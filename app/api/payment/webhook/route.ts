@@ -9,6 +9,10 @@ import {
 import { resolvePaymentProvider } from "@/backend/services/payment";
 import { WebhookAuthError } from "@/backend/services/payment/providers/payplus/client";
 
+export async function GET(req: NextRequest) {
+  return handleWebhook(req);
+}
+
 export async function POST(req: NextRequest) {
   return handleWebhook(req);
 }

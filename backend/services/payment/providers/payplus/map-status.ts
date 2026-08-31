@@ -25,12 +25,15 @@ function readNumber(...values: unknown[]): number | undefined {
 function isSuccessfulStatus(value: string | undefined): boolean {
   if (!value) return false;
   const normalized = value.toLowerCase();
-  return (
+  if (
     normalized === "success" ||
     normalized === "approved" ||
-    normalized === "completed" ||
-    normalized === "0"
-  );
+    normalized === "completed"
+  ) {
+    return true;
+  }
+  // PayPlus charge callbacks use status_code "000" (not "0").
+  return /^0+$/.test(normalized);
 }
 
 export function extractPayPlusWebhookPayload(body: unknown): {
@@ -59,6 +62,7 @@ export function extractPayPlusWebhookPayload(body: unknown): {
   const status = readString(
     transaction.status,
     transaction.status_code,
+    root.status_code,
     results.status,
     data.status,
     root.status
@@ -70,6 +74,7 @@ export function extractPayPlusWebhookPayload(body: unknown): {
     amountIls,
     successful,
     externalRequestId: readString(
+      transaction.payment_request_uid,
       data.page_request_uid,
       data.payment_request_uid,
       root.page_request_uid,

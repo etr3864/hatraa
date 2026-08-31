@@ -7,6 +7,7 @@ import type {
 } from "../../types";
 import { getPayPlusConfig } from "./config";
 import { extractPayPlusWebhookPayload } from "./map-status";
+import { readPayPlusWebhookInput } from "./read-webhook-input";
 import { verifyPayPlusWebhook } from "./verify-webhook";
 
 interface GenerateLinkResponse {
@@ -65,20 +66,13 @@ export class PayPlusProvider implements PaymentProvider {
   }
 
   async verifyAndParseWebhook(req: Request): Promise<ParsedWebhook> {
-    if (req.method !== "POST") {
+    if (req.method !== "GET" && req.method !== "POST") {
       throw new WebhookAuthError();
     }
 
-    const rawBody = await req.text();
+    const { rawBody, parsed } = await readPayPlusWebhookInput(req);
     if (!verifyPayPlusWebhook(rawBody, req)) {
       throw new WebhookAuthError();
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawBody);
-    } catch {
-      throw new Error("גוף הבקשה אינו תקין");
     }
 
     const payload = extractPayPlusWebhookPayload(parsed);
