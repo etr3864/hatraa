@@ -92,8 +92,13 @@ model Letter {
   goal              String
 
   content           String
+  draftContent      String?
   upsellMessage     String
   fileName          String
+
+  draftPdfR2Key     String?
+  signedPdfR2Key    String?
+  attorneyVerified  Boolean  @default(false)
 
   knowledgeVersion  String?
   promptSnapshot    String?

@@ -239,6 +239,11 @@ small {
   pointer-events: none;
 }
 
+.signature-teaser-blur {
+  filter: blur(3.2px);
+  transform: translateZ(0);
+}
+
 .glow-accent {
   box-shadow: 0 0 30px -8px rgba(201, 168, 76, 0.35);
 }

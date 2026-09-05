@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { clsx } from "@/lib/utils";
 import { attorneyShortLabel } from "@/lib/attorney";
 import { sanitizeLetterContent } from "@/backend/services/ai/sanitize-letter-content";
+import { SignatureTeaser } from "@/components/result/SignatureTeaser";
 
 interface LetterDisplayProps {
   content: string;
@@ -78,32 +79,45 @@ export function LetterDisplay({
     return "מכתב זה נוצר באמצעות מערכת בינה מלאכותית (AI) ואינו מהווה ייעוץ משפטי. לתביעות מורכבות מומלץ להתייעץ עם עורך דין.";
   })();
 
+  const dateLabel = new Date().toLocaleDateString("he-IL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
-    <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
-      <div className="border-b border-[var(--color-border)] px-6 py-3 flex items-center justify-between">
-        <span className="text-xs text-[var(--color-subtle)]">מכתב התראה</span>
-        <span className="text-xs text-[var(--color-subtle)]">
+    <article
+      className={clsx(
+        "letter-paper bg-[#fbfbfd] text-[#1a1a1a]",
+        "rounded-sm md:rounded-md overflow-hidden",
+        "border border-black/[0.06]",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_40px_-12px_rgba(0,0,0,0.45)]",
+        "md:shadow-[0_2px_4px_rgba(0,0,0,0.04),0_24px_64px_-16px_rgba(0,0,0,0.55)]"
+      )}
+    >
+      <div className="border-b border-zinc-200/90 bg-zinc-50/80 px-5 py-2.5 md:px-10 md:py-3 flex items-center justify-between gap-3">
+        <span className="text-[11px] md:text-xs text-zinc-500 tracking-wide">
+          מכתב התראה
+        </span>
+        <span className="text-[11px] md:text-xs text-zinc-500 truncate">
           אל: {respondentName}
         </span>
       </div>
 
-      <div className="p-6 md:p-8 font-[Heebo,sans-serif] text-sm leading-relaxed">
-        <div className="flex justify-between text-xs text-[var(--color-subtle)] mb-6">
-          <span>מאת: {fromLabel}</span>
+      <div className="px-5 py-6 md:px-10 md:py-10 font-[Heebo,sans-serif]">
+        <header className="flex flex-col-reverse gap-1 sm:flex-row sm:justify-between sm:items-start mb-7 md:mb-9 text-[12px] md:text-[13px] text-zinc-500">
           <span>
-            {new Date().toLocaleDateString("he-IL", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
+            <span className="text-zinc-400">מאת: </span>
+            <span className="text-zinc-700 font-medium">{fromLabel}</span>
           </span>
-        </div>
+          <span className="shrink-0">{dateLabel}</span>
+        </header>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3.5 md:gap-4">
           {paragraphs.map((p, i) => (
             <p
               key={i}
-              className="text-[var(--color-ink)] leading-relaxed text-[13px]"
+              className="text-[#1c1c1f] leading-[1.75] text-[13.5px] md:text-[14.5px] text-justify"
               style={{ whiteSpace: "pre-wrap" }}
             >
               {p}
@@ -111,40 +125,38 @@ export function LetterDisplay({
           ))}
         </div>
 
-        {(withSignatureBlur || attorneyVerified) && (
-          <div
-            className={clsx(
-              "mt-8 pt-6 border-t border-[var(--color-border)]",
-              withSignatureBlur && "blur-signature select-none"
-            )}
-          >
+        {withSignatureBlur && (
+          <div className="mt-6 md:mt-8 pt-4 border-t border-zinc-200/80">
+            <SignatureTeaser />
+          </div>
+        )}
+
+        {attorneyVerified && !withSignatureBlur && (
+          <div className="mt-8 md:mt-10 pt-5 border-t border-zinc-200">
+            <p className="text-[13.5px] md:text-[14.5px] font-bold text-[#1c1c1f] mb-3">
+              בכבוד רב,
+            </p>
             <div className="flex flex-col gap-2">
-              {attorneyVerified && signatureDataUrl ? (
+              {signatureDataUrl ? (
                 <img
                   src={signatureDataUrl}
                   alt={`חתימת ${attorneyShortLabel()}`}
-                  className="w-36 h-12 object-contain object-right"
+                  className="w-40 h-14 object-contain object-right"
                 />
-              ) : (
-                <div className="w-36 h-12 bg-[var(--color-muted)] rounded opacity-70 flex items-center justify-center">
-                  <span className="text-xs text-[var(--color-subtle)] font-medium">
-                    חתימת עו&quot;ד
-                  </span>
-                </div>
-              )}
-              <p className="text-xs text-[var(--color-subtle)]">
+              ) : null}
+              <p className="text-xs text-zinc-600 font-medium">
                 {`${attorneyShortLabel()} · מאומת ומאושר`}
               </p>
             </div>
           </div>
         )}
 
-        <div className="mt-6 pt-4 border-t border-dashed border-[var(--color-border)]">
-          <p className="text-[11px] text-[var(--color-placeholder)] leading-relaxed">
+        <div className="mt-7 md:mt-8 pt-4 border-t border-dashed border-zinc-300">
+          <p className="text-[10.5px] md:text-[11px] text-zinc-400 leading-relaxed">
             {disclaimer}
           </p>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

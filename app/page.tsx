@@ -1,11 +1,11 @@
 import Link from "next/link";
-import Image from "next/image";
 import {
   IconArrowLeft,
   IconScale,
   IconTrendingUp,
   IconSignature,
 } from "@tabler/icons-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { TimelineSteps } from "@/components/ui/TimelineSteps";
@@ -16,16 +16,7 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50">
         <div className="backdrop-blur-xl bg-[#111113]/80 border-b border-white/[0.04]">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="relative">
-              <Image
-                src="/logo.png"
-                alt="התראה בקליק"
-                width={140}
-                height={140}
-                className="h-9 w-auto object-contain relative opacity-90"
-                priority
-              />
-            </div>
+            <BrandLogo size="header" className="opacity-95" />
             <Link href="/wizard">
               <Button variant="primary" className="text-sm px-6 py-2.5">
                 ייצר מכתב
@@ -62,17 +53,9 @@ function Hero() {
 
       <div className="max-w-3xl mx-auto px-6 pt-8 pb-20 text-center relative">
         <ScrollReveal>
-          <div className="relative inline-block mb-10 group cursor-default">
-            <div className="absolute -inset-10 bg-[var(--color-accent)]/[0.05] rounded-full blur-[80px] group-hover:bg-[var(--color-accent)]/[0.09] transition-all duration-700" />
-            <Image
-              src="/logo.png"
-              alt="התראה בקליק"
-              width={380}
-              height={380}
-              className="h-28 md:h-36 w-auto object-contain mx-auto relative drop-shadow-[0_0_12px_rgba(255,255,255,0.08)] group-hover:drop-shadow-[0_0_20px_rgba(201,168,76,0.2)] transition-all duration-500"
-              loading="eager"
-              priority
-            />
+          <div className="relative inline-flex justify-center mb-10">
+            <div className="absolute -inset-10 bg-[var(--color-accent)]/[0.05] rounded-full blur-[80px] pointer-events-none" />
+            <BrandLogo size="hero" className="relative drop-shadow-[0_0_12px_rgba(255,255,255,0.08)]" />
           </div>
         </ScrollReveal>
 

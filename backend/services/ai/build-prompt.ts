@@ -90,7 +90,7 @@ ${input.respondentAddress ? `- כתובת: ${sanitizeInput(input.respondentAddre
 ${input.amount ? `- סכום: ${sanitizeInput(input.amount)}` : ""}
 - תאריך מכתב: ${todayFormatted()}
 - מועד אחרון לתגובה: ${LETTER_DEADLINE_DAYS} ימים
-- מחיר חתימת עו"ד (לאזכור באפסייל בלבד אם רלוונטי): ${SIGNATURE_PRICE} ש"ח
+- מחיר חתימת עו"ד: ${SIGNATURE_PRICE} ש"ח (אל תכלול מחיר ב-upsellMessage; הכפתור מציג אותו)
 
 טון: ${toneLabel(input.tone)}: ${getToneInstruction(input.tone)}
 מטרה: ${goalLabel(input.goal)}: ${getGoalInstruction(input.goal)}

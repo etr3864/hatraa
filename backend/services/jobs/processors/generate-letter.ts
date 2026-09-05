@@ -39,7 +39,8 @@ export async function processLetterGeneration(
   await finalizeGeneratedLead(
     lead.id,
     job.sessionId,
-    input
+    input,
+    output
   );
 
   return {
@@ -92,6 +93,7 @@ async function createGeneratedLead(
             tone: letterInput.tone,
             goal: letterInput.goal,
             content: output.content,
+            draftContent: output.content,
             upsellMessage: output.upsellMessage,
             fileName: output.fileName,
             knowledgeVersion: output.knowledgeVersion,
@@ -135,7 +137,8 @@ async function recoverExistingResult(
 async function finalizeGeneratedLead(
   leadId: string,
   sessionId: string,
-  input: LetterGenerationJobInput
+  input: LetterGenerationJobInput,
+  output?: Awaited<ReturnType<typeof generateLetter>>
 ): Promise<void> {
   await Promise.all([
     attachAiCallsToLead(input.workflowId, leadId),
@@ -148,6 +151,19 @@ async function finalizeGeneratedLead(
         })
       : Promise.resolve(),
   ]);
+
+  if (output) {
+    const { persistLetterPdfSafely } = await import(
+      "@/backend/services/pdf/persist-letter-pdf"
+    );
+    await persistLetterPdfSafely({
+      leadId,
+      kind: "draft",
+      content: output.content,
+      letterInput: input.letterInput,
+      fileName: output.fileName,
+    });
+  }
 }
 
 function buildResultLetterInput(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/services/db/prisma";
 import { validateAdminToken } from "@/backend/services/security/admin-auth";
 import { decryptLeadPii } from "@/backend/services/security/encryption";
+import { isPaidPaymentStatus } from "@/backend/services/payment";
 import type { Category } from "@/lib/types";
 import { VALID_CATEGORIES } from "@/lib/constants";
 
@@ -88,7 +89,48 @@ export async function GET(req: NextRequest) {
             };
           })
         );
-        return { ...base, evidence };
+
+        let draftPdfUrl: string | undefined;
+        let signedPdfUrl: string | undefined;
+        if (r2Ok && lead.letter) {
+          if (lead.letter.draftPdfR2Key) {
+            try {
+              draftPdfUrl = await getEvidenceSignedUrl(
+                lead.letter.draftPdfR2Key,
+                3600
+              );
+            } catch (err) {
+              console.error(
+                "[leads] draft pdf url:",
+                err instanceof Error ? err.message : err
+              );
+            }
+          }
+          const paid = isPaidPaymentStatus(lead.payment?.status);
+          if (paid && lead.letter.signedPdfR2Key) {
+            try {
+              signedPdfUrl = await getEvidenceSignedUrl(
+                lead.letter.signedPdfR2Key,
+                3600
+              );
+            } catch (err) {
+              console.error(
+                "[leads] signed pdf url:",
+                err instanceof Error ? err.message : err
+              );
+            }
+          }
+        }
+
+        const letter = lead.letter
+          ? {
+              ...lead.letter,
+              draftPdfUrl,
+              signedPdfUrl,
+            }
+          : null;
+
+        return { ...base, letter, evidence };
       })
     );
 

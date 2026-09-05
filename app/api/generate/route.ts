@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
             tone,
             goal,
             content: letterOutput.content,
+            draftContent: letterOutput.content,
             upsellMessage: letterOutput.upsellMessage,
             fileName: letterOutput.fileName,
             knowledgeVersion: letterOutput.knowledgeVersion,
@@ -155,6 +156,17 @@ export async function POST(req: NextRequest) {
     }
 
     await persistLeadEvidence(lead.id, evidence);
+
+    const { persistLetterPdfSafely } = await import(
+      "@/backend/services/pdf/persist-letter-pdf"
+    );
+    await persistLetterPdfSafely({
+      leadId: lead.id,
+      kind: "draft",
+      content: letterOutput.content,
+      letterInput,
+      fileName: letterOutput.fileName,
+    });
 
     const letter = await prisma.letter.findUnique({ where: { leadId: lead.id } });
 

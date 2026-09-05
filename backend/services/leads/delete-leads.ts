@@ -16,13 +16,23 @@ export async function deleteLeadsByIds(ids: string[]): Promise<{
 
   const existing = await prisma.lead.findMany({
     where: { id: { in: uniqueIds } },
-    include: { evidence: { select: { r2Key: true } } },
+    include: {
+      evidence: { select: { r2Key: true } },
+      letter: { select: { draftPdfR2Key: true, signedPdfR2Key: true } },
+    },
   });
   if (existing.length === 0) {
     return { deleted: 0, requested: uniqueIds.length };
   }
 
-  const keys = existing.flatMap((lead) => lead.evidence.map((e) => e.r2Key));
+  const keys = existing.flatMap((lead) => {
+    const evidenceKeys = lead.evidence.map((e) => e.r2Key);
+    const pdfKeys = [
+      lead.letter?.draftPdfR2Key,
+      lead.letter?.signedPdfR2Key,
+    ].filter((k): k is string => Boolean(k));
+    return [...evidenceKeys, ...pdfKeys];
+  });
   if (keys.length > 0) {
     try {
       const { deleteEvidenceObjects, isR2Configured } = await import(

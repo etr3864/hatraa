@@ -112,8 +112,14 @@ export interface LetterRecord {
   tone: Tone;
   goal: Goal;
   content: string;
+  draftContent?: string | null;
   upsellMessage: string;
   fileName: string;
+  draftPdfR2Key?: string | null;
+  signedPdfR2Key?: string | null;
+  draftPdfUrl?: string;
+  signedPdfUrl?: string;
+  attorneyVerified?: boolean;
   knowledgeVersion: string | null;
   promptSnapshot: string | null;
   modelResponse: string | null;

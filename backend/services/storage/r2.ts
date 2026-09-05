@@ -39,6 +39,13 @@ export function buildEvidenceKey(leadId: string, fileName: string, index: number
   return `leads/${leadId}/${index}-${Date.now()}-${safe}`;
 }
 
+export function buildLetterPdfKey(
+  leadId: string,
+  kind: "draft" | "signed"
+): string {
+  return `leads/${leadId}/letter-${kind}.pdf`;
+}
+
 export function buildTemporaryJobKey(
   sessionId: string,
   fileName: string

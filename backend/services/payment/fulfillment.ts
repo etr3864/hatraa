@@ -36,8 +36,11 @@ const ATTORNEY_REWRITE_MARKER = "===ATTORNEY_REWRITE===";
 
 export function letterHasAttorneyRewrite(letter: {
   modelResponse: string | null;
+  attorneyVerified?: boolean;
 } | null): boolean {
-  return !!letter?.modelResponse?.includes(ATTORNEY_REWRITE_MARKER);
+  if (!letter) return false;
+  if (letter.attorneyVerified) return true;
+  return !!letter.modelResponse?.includes(ATTORNEY_REWRITE_MARKER);
 }
 
 export async function getPaymentFulfillmentStatus(
@@ -47,7 +50,7 @@ export async function getPaymentFulfillmentStatus(
     prisma.payment.findUnique({ where: { leadId } }),
     prisma.letter.findUnique({
       where: { leadId },
-      select: { content: true, modelResponse: true },
+      select: { content: true, modelResponse: true, attorneyVerified: true },
     }),
     prisma.processingJob.findFirst({
       where: { leadId, type: ProcessingJobType.ATTORNEY_REWRITE },

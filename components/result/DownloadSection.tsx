@@ -26,7 +26,10 @@ export async function downloadLetterPdf(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error("שגיאה בייצור PDF");
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(data?.error || "שגיאה בייצור PDF");
+  }
 
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

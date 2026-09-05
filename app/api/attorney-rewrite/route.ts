@@ -60,17 +60,37 @@ export async function POST(req: NextRequest) {
     try {
       const existing = await prisma.letter.findUnique({
         where: { leadId },
-        select: { modelResponse: true },
+        select: {
+          content: true,
+          draftContent: true,
+          modelResponse: true,
+          fileName: true,
+        },
       });
       if (existing) {
         const prev = existing.modelResponse ?? "";
+        const draftContent =
+          existing.draftContent?.trim() || existing.content || content;
         await prisma.letter.update({
           where: { leadId },
           data: {
+            draftContent,
             content: result.content,
             verified: result.verified,
+            attorneyVerified: true,
             modelResponse: `${prev}\n\n===ATTORNEY_REWRITE===\nverified=${result.verified}`,
           },
+        });
+
+        const { persistLetterPdfSafely } = await import(
+          "@/backend/services/pdf/persist-letter-pdf"
+        );
+        await persistLetterPdfSafely({
+          leadId,
+          kind: "signed",
+          content: result.content,
+          letterInput,
+          fileName: existing.fileName || "מכתב_התראה",
         });
       }
     } catch (dbErr) {

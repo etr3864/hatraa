@@ -18,7 +18,11 @@ export async function processAttorneyRewrite(
     prisma.payment.findUnique({ where: { leadId: input.leadId } }),
     prisma.letter.findUnique({
       where: { leadId: input.leadId },
-      select: { modelResponse: true },
+      select: {
+        content: true,
+        draftContent: true,
+        modelResponse: true,
+      },
     }),
   ]);
   if (!isPaidPaymentStatus(payment?.status)) {
@@ -37,13 +41,20 @@ export async function processAttorneyRewrite(
     attorneyVerified: true,
   };
 
+  const draftContent =
+    existingLetter?.draftContent?.trim() ||
+    existingLetter?.content ||
+    input.content;
+
   await onProgress("שומר את הנוסח", 85);
   await prisma.$transaction([
     prisma.letter.update({
       where: { leadId: input.leadId },
       data: {
+        draftContent,
         content: rewritten.content,
         verified: rewritten.verified,
+        attorneyVerified: true,
         modelResponse: `${existingLetter?.modelResponse ?? ""}\n\n===ATTORNEY_REWRITE===\nverified=${rewritten.verified}`,
       },
     }),
@@ -55,6 +66,20 @@ export async function processAttorneyRewrite(
       },
     }),
   ]);
+
+  await onProgress("שומר PDF חתום", 92);
+  const { persistLetterPdfSafely } = await import(
+    "@/backend/services/pdf/persist-letter-pdf"
+  );
+  await persistLetterPdfSafely({
+    leadId: input.leadId,
+    kind: "signed",
+    content: rewritten.content,
+    letterInput: input.letterInput,
+    fileName: input.letterInput.respondentName
+      ? `מכתב_התראה_${input.letterInput.respondentName}`
+      : "מכתב_התראה",
+  });
 
   await trackEventSafely({
     sessionId: job.sessionId,

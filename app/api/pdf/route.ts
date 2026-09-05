@@ -9,7 +9,12 @@ import {
   LeadAccessError,
 } from "@/backend/services/security/lead-access";
 import { loadAttorneySignatureDataUrl } from "@/backend/services/pdf/attorney-signature";
+import { letterHasAttorneyRewrite } from "@/backend/services/payment/fulfillment";
 import { isPaidPaymentStatus } from "@/backend/services/payment";
+import {
+  getEvidenceBuffer,
+  isR2Configured,
+} from "@/backend/services/storage/r2";
 import type { LetterInput } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -33,7 +38,8 @@ export async function POST(req: NextRequest) {
       fileName: string;
     };
 
-    const { leadId, withSignature: requestedSignature, letterInput, content, fileName } = body;
+    const { leadId, withSignature: requestedSignature, letterInput, fileName } =
+      body;
 
     if (!leadId || leadId === "no-db") {
       return NextResponse.json({ error: "נדרש leadId" }, { status: 400 });
@@ -42,10 +48,56 @@ export async function POST(req: NextRequest) {
     const sessionId = getAnalyticsSessionId(req);
     await assertLeadSessionAccess(leadId, sessionId);
 
-    let allowSignature = false;
-    if (requestedSignature) {
-      const payment = await prisma.payment.findUnique({ where: { leadId } });
-      allowSignature = isPaidPaymentStatus(payment?.status);
+    const [payment, letter] = await Promise.all([
+      prisma.payment.findUnique({ where: { leadId } }),
+      prisma.letter.findUnique({ where: { leadId } }),
+    ]);
+
+    if (!letter) {
+      return NextResponse.json({ error: "מכתב לא נמצא" }, { status: 404 });
+    }
+
+    const paid = isPaidPaymentStatus(payment?.status);
+    const rewritten =
+      letter.attorneyVerified || letterHasAttorneyRewrite(letter);
+    const allowSignature = Boolean(requestedSignature && paid && rewritten);
+
+    if (requestedSignature && !allowSignature) {
+      return NextResponse.json(
+        { error: "חתימת עו״ד זמינה רק אחרי תשלום וניסוח מאושר" },
+        { status: 403 }
+      );
+    }
+
+    const pdfContent = allowSignature
+      ? letter.content
+      : letter.draftContent?.trim() || letter.content;
+
+    const resolvedFileName = fileName || letter.fileName || "מכתב_התראה";
+
+    if (isR2Configured()) {
+      const cachedKey = allowSignature
+        ? letter.signedPdfR2Key
+        : letter.draftPdfR2Key;
+      if (cachedKey) {
+        try {
+          const { buffer } = await getEvidenceBuffer(cachedKey);
+          if (sessionId) {
+            await trackEventSafely({
+              sessionId,
+              leadId,
+              type: "PDF_DOWNLOADED",
+              metadata: { withSignature: allowSignature, source: "r2" },
+            });
+          }
+          return pdfResponse(buffer, resolvedFileName);
+        } catch (err) {
+          console.error(
+            "[pdf] r2 cache miss:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      }
     }
 
     let signatureDataUrl: string | undefined;
@@ -79,7 +131,7 @@ export async function POST(req: NextRequest) {
 
     const pdfBuffer = await renderPDF({
       letterInput,
-      content,
+      content: pdfContent,
       withSignature: allowSignature,
       attorneyVerified: allowSignature,
       signatureDataUrl,
@@ -89,7 +141,7 @@ export async function POST(req: NextRequest) {
     try {
       await prisma.letter.updateMany({
         where: { leadId },
-        data: { fileName },
+        data: { fileName: resolvedFileName },
       });
     } catch (dbErr) {
       console.error("[pdf] DB update failed:", dbErr);
@@ -100,20 +152,11 @@ export async function POST(req: NextRequest) {
         sessionId,
         leadId,
         type: "PDF_DOWNLOADED",
-        metadata: { withSignature: allowSignature },
+        metadata: { withSignature: allowSignature, source: "render" },
       });
     }
 
-    const encodedFileName = encodeURIComponent(`${fileName}.pdf`);
-
-    return new NextResponse(pdfBuffer as unknown as BodyInit, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename*=UTF-8''${encodedFileName}`,
-        "Content-Length": String(pdfBuffer.length),
-      },
-    });
+    return pdfResponse(pdfBuffer, resolvedFileName);
   } catch (err) {
     if (err instanceof LeadAccessError) {
       return NextResponse.json({ error: err.message }, { status: 403 });
@@ -121,4 +164,16 @@ export async function POST(req: NextRequest) {
     console.error("[pdf] Error:", err instanceof Error ? err.stack || err.message : err);
     return NextResponse.json({ error: "שגיאה בייצור PDF" }, { status: 500 });
   }
+}
+
+function pdfResponse(pdfBuffer: Buffer, fileName: string) {
+  const encodedFileName = encodeURIComponent(`${fileName}.pdf`);
+  return new NextResponse(pdfBuffer as unknown as BodyInit, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodedFileName}`,
+      "Content-Length": String(pdfBuffer.length),
+    },
+  });
 }

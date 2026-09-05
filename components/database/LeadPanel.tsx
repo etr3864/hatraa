@@ -410,7 +410,59 @@ export function LeadPanel({ lead, token, onClose, onSaved, onDeleted }: LeadPane
                 )}
               </Section>
 
-              <Section title="המכתב שנוצר">
+              <Section title="קבצי PDF">
+                <div className="flex flex-col gap-2">
+                  {lead.letter?.draftPdfUrl ? (
+                    <a
+                      href={lead.letter.draftPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+                    >
+                      הורד מכתב לפני שדרוג
+                    </a>
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      אין PDF של הנוסח לפני שדרוג
+                    </p>
+                  )}
+                  {lead.letter?.signedPdfUrl ? (
+                    <a
+                      href={lead.letter.signedPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950 hover:bg-amber-100"
+                    >
+                      הורד מכתב חתום (אחרי שדרוג)
+                    </a>
+                  ) : lead.payment?.status === "completed" ? (
+                    <p className="text-sm text-zinc-500">
+                      שולם — PDF חתום עדיין לא נשמר (או בתהליך)
+                    </p>
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      PDF חתום זמין רק אחרי תשלום ושדרוג
+                    </p>
+                  )}
+                </div>
+              </Section>
+
+              {lead.letter?.draftContent &&
+                lead.letter.draftContent !== lead.letter.content && (
+                  <Section title="המכתב לפני שדרוג">
+                    <pre className="whitespace-pre-wrap rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 leading-relaxed font-[inherit]">
+                      {lead.letter.draftContent}
+                    </pre>
+                  </Section>
+                )}
+
+              <Section
+                title={
+                  lead.letter?.attorneyVerified
+                    ? "המכתב אחרי שדרוג (נוסח עו״ד)"
+                    : "המכתב שנוצר"
+                }
+              >
                 <pre className="whitespace-pre-wrap rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 leading-relaxed font-[inherit]">
                   {lead.letter?.content || "—"}
                 </pre>
