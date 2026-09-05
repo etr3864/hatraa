@@ -64,6 +64,10 @@ export default function WizardPage() {
   const stepIndex = STEP_ORDER.indexOf(step);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
+
+  useEffect(() => {
     trackClientEvent("WIZARD_STARTED");
   }, []);
 

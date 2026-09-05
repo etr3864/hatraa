@@ -19,6 +19,7 @@ export function SiteFooter() {
           <div className="space-y-2">
             <p className="font-semibold text-[var(--color-ink)]">מידע משפטי</p>
             <nav className="flex flex-col gap-1.5" aria-label="קישורים משפטיים">
+              <FooterLink href="/faq">שאלות נפוצות</FooterLink>
               <FooterLink href="/terms">תנאי שימוש</FooterLink>
               <FooterLink href="/privacy">מדיניות פרטיות</FooterLink>
               <FooterLink href="/accessibility">הצהרת נגישות</FooterLink>

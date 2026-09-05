@@ -54,7 +54,7 @@ interface WizardStepContentProps {
 export function WizardStepContent(props: WizardStepContentProps) {
   const { step, data } = props;
   return (
-    <main className="max-w-xl mx-auto px-6 pt-24 pb-16 min-h-screen flex flex-col justify-center">
+    <main className="max-w-xl mx-auto px-6 pt-24 pb-16 min-h-screen flex flex-col justify-start">
       {props.topSlot}
       {props.error && (step === "input" || step === "evidence") && (
         <ErrorMessage message={props.error} className="mb-6" />

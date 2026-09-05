@@ -66,6 +66,8 @@ function ResultPageContent() {
   const [fulfillmentAttempt, setFulfillmentAttempt] = useState(0);
   const autoDownloaded = useRef(false);
   const trackedPaymentFailure = useRef(false);
+  const upgradeStepRef = useRef(upgradeStep);
+  upgradeStepRef.current = upgradeStep;
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -79,6 +81,17 @@ function ResultPageContent() {
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [router]);
+
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      if (upgradeStepRef.current !== "pay") return;
+      setIsUpgrading(false);
+      setUpgradeStep(null);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   const persistResult = useCallback((next: LetterResult) => {
     setResult(next);

@@ -32,6 +32,9 @@ export function LegalPageShell({
         </div>
 
         <div className="mt-12 pt-8 border-t border-[var(--color-border)] flex flex-wrap gap-4 text-sm">
+          <Link href="/faq" className="text-[var(--color-primary)] hover:underline">
+            שאלות נפוצות
+          </Link>
           <Link href="/terms" className="text-[var(--color-primary)] hover:underline">
             תנאי שימוש
           </Link>
