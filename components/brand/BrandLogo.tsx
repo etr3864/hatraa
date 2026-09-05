@@ -3,7 +3,6 @@ type BrandLogoProps = {
   className?: string;
 };
 
-/** Mark aspect from public/logo-mark.svg viewBox. */
 const MARK_ASPECT = 470 / 373;
 
 const SIZES = {
@@ -26,7 +25,8 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
 
   return (
     <div
-      className={`inline-flex items-center ${s.gap} text-[var(--color-ink)] ${className}`}
+      dir="ltr"
+      className={`inline-flex items-center justify-center ${s.gap} text-white ${className}`}
       aria-label="התראה בקליק"
     >
       <img
@@ -38,7 +38,9 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
         style={{ width: markWidth, height: markHeight }}
         decoding="async"
       />
-      <span className={`${s.text} leading-none`}>{`התראה בקליק`}</span>
+      <span dir="rtl" className={`${s.text} leading-none text-white`}>
+        התראה בקליק
+      </span>
     </div>
   );
 }

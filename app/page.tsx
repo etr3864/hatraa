@@ -53,9 +53,12 @@ function Hero() {
 
       <div className="max-w-3xl mx-auto px-6 pt-8 pb-20 text-center relative">
         <ScrollReveal>
-          <div className="relative inline-flex justify-center mb-10">
+          <div className="relative flex justify-center mb-10">
             <div className="absolute -inset-10 bg-[var(--color-accent)]/[0.05] rounded-full blur-[80px] pointer-events-none" />
-            <BrandLogo size="hero" className="relative drop-shadow-[0_0_12px_rgba(255,255,255,0.08)]" />
+            <BrandLogo
+              size="hero"
+              className="relative mx-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+            />
           </div>
         </ScrollReveal>
 
