@@ -24,7 +24,18 @@ const SHARK_PATH =
 const GOLD_BAR_PATH =
   "M48.6 307.4 C47.3 306.2 47.0 303.6 47.0 295.6 C47.0 286.7 47.3 284.9 49.1 282.6 L51.1 280.0L124.0 280.0 C190.5 280.0 196.9 280.1 198.1 281.7 C199.1 282.8 199.5 286.5 199.5 294.7 C199.5 304.9 199.3 306.3 197.6 307.6 C195.9 308.8 184.1 309.0 122.9 309.0 C58.1 309.0 50.0 308.8 48.6 307.4 Z";
 
-function BrandMark({ width, height }: { width: number; height: number }) {
+function BrandMark({
+  width,
+  height,
+  size,
+}: {
+  width: number;
+  height: number;
+  size: "header" | "hero";
+}) {
+  const nudge =
+    size === "hero" ? "-translate-y-[3px] md:-translate-y-[4px]" : "-translate-y-[2px]";
+
   return (
     <svg
       width={width}
@@ -32,7 +43,7 @@ function BrandMark({ width, height }: { width: number; height: number }) {
       viewBox="0 0 470 373"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="shrink-0"
+      className={`shrink-0 ${nudge}`}
       aria-hidden
     >
       <path d={SHARK_PATH} fill="#FFFFFF" fillRule="evenodd" />
@@ -52,7 +63,7 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
       className={`inline-flex items-center justify-center ${s.gap} ${className}`}
       aria-label="התראה בקליק"
     >
-      <BrandMark width={markWidth} height={markHeight} />
+      <BrandMark width={markWidth} height={markHeight} size={size} />
       <span dir="rtl" className={`${s.text} leading-none text-white`}>
         התראה בקליק
       </span>
