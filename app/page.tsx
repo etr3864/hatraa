@@ -1,11 +1,7 @@
 import Link from "next/link";
-import {
-  IconArrowLeft,
-  IconScale,
-  IconTrendingUp,
-  IconSignature,
-} from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { WhyItWorks } from "@/components/landing/WhyItWorks";
 import { Button } from "@/components/ui/Button";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { TimelineSteps } from "@/components/ui/TimelineSteps";
@@ -13,7 +9,7 @@ import { TimelineSteps } from "@/components/ui/TimelineSteps";
 export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-bg)]" dir="rtl">
-      <header className="fixed top-0 left-0 right-0 z-50">
+      <header className="fixed top-0 left-0 right-0 z-50 header-enter">
         <div className="backdrop-blur-xl bg-[#111113]/80 border-b border-white/[0.04]">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
             <BrandLogo size="header" className="opacity-95" />
@@ -340,72 +336,11 @@ function HowItWorks() {
   );
 }
 
-function WhyItWorks() {
-  const points = [
-    {
-      icon: <IconScale size={22} />,
-      title: "מכתב בפורמט רשמי ומקצועי",
-      desc: "מבנה מקצועי, סעיפי חוק אמיתיים, פורמט שהצד השני מכיר ולוקח ברצינות.",
-    },
-    {
-      icon: <IconTrendingUp size={22} />,
-      title: "מכתב רשמי כצעד ראשון לפתרון",
-      desc: "לרוב הצד השני לא רוצה תביעה. מכתב בפורמט מקצועי הוא לעיתים כל מה שצריך.",
-    },
-    {
-      icon: <IconSignature size={22} />,
-      title: "חתימת עורך דין ב-250 ש״ח בלבד",
-      desc: "עורך דין חותם על המכתב ומעלה את הסיכוי לתגובה. פחות מרבע מעלות ייעוץ רגיל.",
-    },
-  ];
-
-  return (
-    <section className="py-28 px-6 relative bg-[var(--color-surface)]">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#080809] to-transparent pointer-events-none" />
-      <div className="absolute top-[30%] right-[5%] w-60 h-60 rounded-full bg-[var(--color-accent)]/[0.02] blur-[80px] pointer-events-none" />
-
-      <div className="max-w-3xl mx-auto">
-        <ScrollReveal>
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-[var(--color-accent)] mb-3 tracking-wide">
-              למה זה עובד?
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-ink)]">
-              המכתבים מבוססים על תבניות שנכתבו ואושרו על ידי עורכי דין.
-            </h2>
-          </div>
-        </ScrollReveal>
-
-        <div className="flex flex-col gap-4">
-          {points.map((p, i) => (
-            <ScrollReveal key={p.title} delay={i * 100}>
-              <div className="flex items-start gap-5 p-6 md:p-7 rounded-2xl bg-white/[0.02] backdrop-blur-sm border border-white/[0.06] hover:bg-white/[0.05] hover:border-[var(--color-accent)]/20 transition-all duration-300 group hover:-translate-y-0.5">
-                <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-[var(--color-accent)] flex-shrink-0 group-hover:bg-[var(--color-accent)]/10 group-hover:border-[var(--color-accent)]/30 transition-all duration-300">
-                  {p.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold text-[var(--color-ink)] mb-1.5">
-                    {p.title}
-                  </h3>
-                  <p className="text-sm text-[var(--color-body)] leading-relaxed">
-                    {p.desc}
-                  </p>
-                </div>
-              </div>
-            </ScrollReveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function FinalCTA() {
   return (
     <section className="py-28 px-6 relative overflow-hidden bg-[#060607]">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[var(--color-surface)] to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#0c0c0e] to-transparent pointer-events-none" />
       <div className="absolute inset-0 bg-radial-fade pointer-events-none" />
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-[var(--color-accent)]/[0.04] blur-[100px] pointer-events-none" />
 
@@ -414,9 +349,13 @@ function FinalCTA() {
           <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-ink)] mb-5">
             מוכן לשלוח מכתב?
           </h2>
+        </ScrollReveal>
+        <ScrollReveal delay={90}>
           <p className="text-[var(--color-body)] mb-10 max-w-md mx-auto text-lg">
             תהליך פשוט של 3 דקות. ללא הרשמה, ללא התחייבות.
           </p>
+        </ScrollReveal>
+        <ScrollReveal delay={180}>
           <Link href="/wizard">
             <Button variant="primary" className="text-lg px-14 py-5">
               התחל עכשיו בחינם

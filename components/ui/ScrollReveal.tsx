@@ -9,6 +9,12 @@ interface ScrollRevealProps {
   direction?: "up" | "left" | "right" | "scale";
 }
 
+function motionReduced(): boolean {
+  if (typeof window === "undefined") return false;
+  if (document.documentElement.dataset.a11yMotion === "reduce") return true;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function ScrollReveal({
   children,
   className = "",
@@ -21,6 +27,10 @@ export function ScrollReveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (motionReduced()) {
+      setIsVisible(true);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -29,35 +39,33 @@ export function ScrollReveal({
           observer.unobserve(el);
         }
       },
-      { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
+      { threshold: 0.18, rootMargin: "0px 0px -12%" }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const baseStyles: React.CSSProperties = {
-    transitionProperty: "opacity, transform",
-    transitionDuration: "0.6s",
-    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-    transitionDelay: `${delay}ms`,
-  };
-
   const hiddenTransform: Record<string, string> = {
-    up: "translateY(30px)",
-    left: "translateX(30px)",
-    right: "translateX(-30px)",
-    scale: "scale(0.92)",
-  };
-
-  const style: React.CSSProperties = {
-    ...baseStyles,
-    opacity: isVisible ? 1 : 0,
-    transform: isVisible ? "none" : hiddenTransform[direction],
+    up: "translateY(18px)",
+    left: "translateX(16px)",
+    right: "translateX(-16px)",
+    scale: "scale(0.97)",
   };
 
   return (
-    <div ref={ref} className={className} style={style}>
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        transitionProperty: "opacity, transform",
+        transitionDuration: "0.9s",
+        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+        transitionDelay: `${delay}ms`,
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? "none" : hiddenTransform[direction],
+      }}
+    >
       {children}
     </div>
   );

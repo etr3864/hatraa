@@ -1,5 +1,6 @@
 type BrandLogoProps = {
-  size?: "header" | "hero";
+  size?: "header" | "hero" | "letter";
+  tone?: "onDark" | "onLight";
   className?: string;
 };
 
@@ -16,6 +17,11 @@ const SIZES = {
     text: "text-4xl md:text-5xl font-extrabold tracking-tight",
     gap: "gap-4",
   },
+  letter: {
+    markHeight: 28,
+    text: "text-[15px] font-extrabold tracking-tight",
+    gap: "gap-2",
+  },
 } as const;
 
 const SHARK_PATH =
@@ -28,10 +34,12 @@ function BrandMark({
   width,
   height,
   size,
+  ink,
 }: {
   width: number;
   height: number;
-  size: "header" | "hero";
+  size: keyof typeof SIZES;
+  ink: string;
 }) {
   const nudge =
     size === "hero" ? "-translate-y-[3px] md:-translate-y-[4px]" : "-translate-y-[2px]";
@@ -46,16 +54,21 @@ function BrandMark({
       className={`shrink-0 ${nudge}`}
       aria-hidden
     >
-      <path d={SHARK_PATH} fill="#FFFFFF" fillRule="evenodd" />
+      <path d={SHARK_PATH} fill={ink} fillRule="evenodd" />
       <path d={GOLD_BAR_PATH} fill="#C9A84C" />
     </svg>
   );
 }
 
-export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
+export function BrandLogo({
+  size = "header",
+  tone = "onDark",
+  className = "",
+}: BrandLogoProps) {
   const s = SIZES[size];
   const markHeight = s.markHeight;
   const markWidth = Math.round(markHeight * MARK_ASPECT);
+  const ink = tone === "onLight" ? "#1a1a1a" : "#FFFFFF";
 
   return (
     <div
@@ -63,8 +76,8 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
       className={`inline-flex items-center justify-center ${s.gap} ${className}`}
       aria-label="התראה בקליק"
     >
-      <BrandMark width={markWidth} height={markHeight} size={size} />
-      <span dir="rtl" className={`${s.text} leading-none text-white`}>
+      <BrandMark width={markWidth} height={markHeight} size={size} ink={ink} />
+      <span dir="rtl" className={`${s.text} leading-none`} style={{ color: ink }}>
         התראה בקליק
       </span>
     </div>
