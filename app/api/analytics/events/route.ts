@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import {
   ANALYTICS_SESSION_COOKIE,
   CLIENT_ANALYTICS_EVENTS,
@@ -39,14 +39,6 @@ interface EventBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const rate = await checkRateLimit(
-      `analytics:${getClientIp(request.headers)}`,
-      200
-    );
-    if (!rate.allowed) {
-      return NextResponse.json({ success: false }, { status: 202 });
-    }
-
     const body = (await request.json()) as EventBody;
     if (!body.type || !EVENT_SET.has(body.type)) {
       return NextResponse.json({ error: "אירוע לא תקין" }, { status: 400 });
@@ -55,12 +47,9 @@ export async function POST(request: NextRequest) {
     const sessionId = getAnalyticsSessionId(request) ?? randomUUID();
     const type = body.type as ClientAnalyticsEvent;
     const entityId = cleanDimension(body.entityId);
-    const deviceType = detectDeviceType(
-      request.headers.get("user-agent") ?? ""
-    );
-
-    await ensureAnalyticsSession(sessionId, {
-      deviceType,
+    const ip = getClientIp(request.headers);
+    const dimensions = {
+      deviceType: detectDeviceType(request.headers.get("user-agent") ?? ""),
       inputMode: cleanDimension(body.inputMode),
       hasEvidence: body.hasEvidence,
       senderType: cleanDimension(body.senderType),
@@ -70,15 +59,7 @@ export async function POST(request: NextRequest) {
       utmCampaign: cleanDimension(body.utm?.campaign),
       utmContent: cleanDimension(body.utm?.content),
       utmTerm: cleanDimension(body.utm?.term),
-    });
-
-    await trackEvent({
-      sessionId,
-      type,
-      idempotencyKey: entityId
-        ? `${sessionId}:${type}:${entityId}`
-        : undefined,
-    });
+    };
 
     const response = NextResponse.json({ success: true });
     response.cookies.set({
@@ -90,6 +71,16 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
     });
+
+    after(() =>
+      persistEvent({ sessionId, type, entityId, ip, dimensions }).catch((error) => {
+        console.warn(
+          "[analytics] client event failed:",
+          error instanceof Error ? error.message : error
+        );
+      })
+    );
+
     return response;
   } catch (error) {
     console.warn(
@@ -100,8 +91,38 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function persistEvent(input: {
+  sessionId: string;
+  type: ClientAnalyticsEvent;
+  entityId?: string;
+  ip: string;
+  dimensions: {
+    deviceType: string;
+    inputMode?: string;
+    hasEvidence?: boolean;
+    senderType?: string;
+    category?: string;
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmContent?: string;
+    utmTerm?: string;
+  };
+}) {
+  const rate = await checkRateLimit(`analytics:${input.ip}`, 200);
+  if (!rate.allowed) return;
+
+  await ensureAnalyticsSession(input.sessionId, input.dimensions);
+  await trackEvent({
+    sessionId: input.sessionId,
+    type: input.type,
+    idempotencyKey: input.entityId
+      ? `${input.sessionId}:${input.type}:${input.entityId}`
+      : undefined,
+  });
+}
+
 function cleanDimension(value: string | undefined): string | undefined {
   const cleaned = value?.trim().slice(0, MAX_VALUE_LENGTH);
   return cleaned || undefined;
 }
-

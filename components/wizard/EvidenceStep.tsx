@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { IconUpload, IconX, IconFile, IconPhoto, IconFileText } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { StepHeading } from "@/components/wizard/StepHeading";
@@ -13,14 +13,20 @@ import {
   mapUploadError,
   resolveEvidenceFile,
 } from "@/lib/evidence-mime";
-import { uploadFileForJob } from "@/lib/job-upload";
+import { deleteJobUploads, uploadFileForJob } from "@/lib/job-upload";
 
 const MAX_FILES = 8;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = Array.from(SUPPORTED_EVIDENCE_MIMES);
 
+type UploadStatus = "uploading" | "ready" | "error";
+
 interface EvidencePreview extends EvidenceFile {
+  id: string;
   previewUrl?: string;
+  status: UploadStatus;
+  progress: number;
+  error?: string;
 }
 
 interface EvidenceStepProps {
@@ -29,22 +35,80 @@ interface EvidenceStepProps {
   onSkip: () => void;
 }
 
+function newItemId() {
+  return crypto.randomUUID();
+}
+
+function toReadyItem(file: EvidenceFile): EvidencePreview {
+  return {
+    ...file,
+    id: newItemId(),
+    status: "ready",
+    progress: 100,
+  };
+}
+
 export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepProps) {
-  const [files, setFiles] = useState<EvidencePreview[]>(initialFiles ?? []);
+  const [files, setFiles] = useState<EvidencePreview[]>(
+    () => (initialFiles ?? []).map(toReadyItem)
+  );
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const aborts = useRef(new Map<string, AbortController>());
+  const originals = useRef(new Map<string, File>());
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
+  useEffect(() => {
+    return () => {
+      aborts.current.forEach((controller) => controller.abort());
+    };
+  }, []);
+
+  const patchFile = useCallback((id: string, patch: Partial<EvidencePreview>) => {
+    setFiles((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }, []);
+
+  const startUpload = useCallback(
+    async (id: string, file: File) => {
+      const controller = new AbortController();
+      aborts.current.set(id, controller);
+      originals.current.set(id, file);
+
+      try {
+        const prepared = await resolveEvidenceFile(file);
+        if (controller.signal.aborted) return;
+        patchFile(id, { name: prepared.name, type: prepared.type });
+
+        const storage = await uploadFileForJob({
+          body: file,
+          name: prepared.name,
+          type: prepared.type,
+          signal: controller.signal,
+          onProgress: (pct) => patchFile(id, { progress: pct, status: "uploading" }),
+        });
+
+        if (controller.signal.aborted || !filesRef.current.some((item) => item.id === id)) {
+          deleteJobUploads([storage.key]);
+          return;
+        }
+
+        patchFile(id, { storage, status: "ready", progress: 100, error: undefined });
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        patchFile(id, { status: "error", progress: 0, error: mapUploadError(err) });
+      } finally {
+        aborts.current.delete(id);
+      }
+    },
+    [patchFile]
+  );
 
   const addFiles = useCallback(
-    async (fileList: FileList | File[]) => {
+    (fileList: FileList | File[]) => {
       setError("");
       const incoming = Array.from(fileList);
-
-      if (files.length + incoming.length > MAX_FILES) {
-        setError(`ניתן להעלות עד ${MAX_FILES} קבצים`);
-        return;
-      }
 
       for (const file of incoming) {
         const mime = normalizeEvidenceMime(file.type, file.name);
@@ -58,50 +122,66 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
         }
       }
 
-      try {
-        setIsUploading(true);
-        const newFiles: EvidencePreview[] = await Promise.all(
-          incoming.map(async (file) => {
-            const prepared = await resolveEvidenceFile(file);
-            const storage = await uploadFileForJob({
-              body: file,
-              name: prepared.name,
-              type: prepared.type,
-            });
-            return {
-              name: prepared.name,
-              type: prepared.type,
-              base64: "",
-              description: "",
-              storage,
-              previewUrl: file.type.startsWith("image/")
-                ? URL.createObjectURL(file)
-                : undefined,
-            };
-          })
-        );
+      const drafts: EvidencePreview[] = incoming.map((file) => ({
+        id: newItemId(),
+        name: file.name,
+        type: file.type || normalizeEvidenceMime(file.type, file.name),
+        base64: "",
+        description: "",
+        status: "uploading",
+        progress: 0,
+        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+      }));
 
-        setFiles((prev) => [...prev, ...newFiles]);
-      } catch (err) {
-        setError(mapUploadError(err));
-      } finally {
-        setIsUploading(false);
+      let accepted = false;
+      setFiles((prev) => {
+        if (prev.length + drafts.length > MAX_FILES) {
+          setError(`ניתן להעלות עד ${MAX_FILES} קבצים`);
+          return prev;
+        }
+        accepted = true;
+        return [...prev, ...drafts];
+      });
+
+      if (!accepted) {
+        drafts.forEach((draft) => {
+          if (draft.previewUrl) URL.revokeObjectURL(draft.previewUrl);
+        });
+        return;
       }
+
+      drafts.forEach((draft, index) => {
+        void startUpload(draft.id, incoming[index]);
+      });
     },
-    [files.length]
+    [startUpload]
   );
 
-  const removeFile = useCallback((index: number) => {
+  const removeFile = useCallback((id: string) => {
+    aborts.current.get(id)?.abort();
+    aborts.current.delete(id);
+    originals.current.delete(id);
     setFiles((prev) => {
-      const target = prev[index];
+      const target = prev.find((item) => item.id === id);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((_, i) => i !== index);
+      deleteJobUploads([target?.storage?.key]);
+      return prev.filter((item) => item.id !== id);
     });
   }, []);
 
-  const updateDescription = useCallback((index: number, desc: string) => {
+  const retryFile = useCallback(
+    (id: string) => {
+      const file = originals.current.get(id);
+      if (!file) return;
+      patchFile(id, { status: "uploading", progress: 0, error: undefined });
+      void startUpload(id, file);
+    },
+    [patchFile, startUpload]
+  );
+
+  const updateDescription = useCallback((id: string, desc: string) => {
     setFiles((prev) =>
-      prev.map((f, i) => (i === index ? { ...f, description: desc } : f))
+      prev.map((item) => (item.id === id ? { ...item, description: desc } : item))
     );
   }, []);
 
@@ -109,47 +189,14 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      if (e.dataTransfer.files.length) {
-        addFiles(e.dataTransfer.files);
-      }
+      if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
     },
     [addFiles]
   );
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = () => setDragOver(false);
-
-  const getFileIcon = (type: string) => {
-    if (type === "application/pdf") return <IconFileText size={24} className="text-red-500" />;
-    if (type.startsWith("image/")) return <IconPhoto size={24} className="text-blue-500" />;
-    return <IconFile size={24} className="text-gray-500" />;
-  };
-
-  const getPreview = (file: EvidencePreview) => {
-    const previewSrc =
-      file.previewUrl ||
-      (file.base64 ? `data:${file.type};base64,${file.base64}` : "");
-    if (file.type.startsWith("image/") && previewSrc) {
-      return (
-        // Local blob/data preview cannot benefit from Next.js image optimization.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={previewSrc}
-          alt={file.name}
-          className="w-16 h-16 object-cover rounded-lg border border-[var(--color-border)]"
-        />
-      );
-    }
-    return (
-      <div className="w-16 h-16 flex items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-elevated)]">
-        {getFileIcon(file.type)}
-      </div>
-    );
-  };
+  const uploadingCount = files.filter((file) => file.status === "uploading").length;
+  const readyFiles = files.filter((file) => file.status === "ready");
+  const canContinue = readyFiles.length > 0 && uploadingCount === 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -161,8 +208,11 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
 
       <div
         onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
         onClick={() => inputRef.current?.click()}
         className={`wizard-dropzone flex flex-col items-center justify-center gap-4 ${
           dragOver ? "is-over" : ""
@@ -201,35 +251,18 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       {files.length > 0 && (
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium text-[var(--color-body)]">
-            {files.length} קבצים צורפו
+            {uploadingCount > 0
+              ? `מעלה ${uploadingCount} · ${readyFiles.length} מוכנים`
+              : `${readyFiles.length} קבצים צורפו`}
           </p>
-          {files.map((file, index) => (
-            <div
-              key={`${file.name}-${index}`}
-              className="flex gap-3 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/80 hover:border-[var(--color-accent)]/25 transition-colors"
-            >
-              {getPreview(file)}
-              <div className="flex-1 flex flex-col gap-2 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-[var(--color-ink)] truncate">
-                    {file.name}
-                  </span>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="flex-shrink-0 p-1 rounded-full hover:bg-[var(--color-error)]/10 transition-colors"
-                  >
-                    <IconX size={16} className="text-[var(--color-error)]" />
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  placeholder="מה הראיה הזו מראה? (אופציונלי)"
-                  value={file.description || ""}
-                  onChange={(e) => updateDescription(index, e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]/60 placeholder:text-[var(--color-placeholder)]"
-                />
-              </div>
-            </div>
+          {files.map((file) => (
+            <EvidenceCard
+              key={file.id}
+              file={file}
+              onRemove={() => removeFile(file.id)}
+              onRetry={() => retryFile(file.id)}
+              onDescribe={(value) => updateDescription(file.id, value)}
+            />
           ))}
         </div>
       )}
@@ -238,32 +271,130 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
         {files.length > 0 ? (
           <Button
             variant="primary"
-            onClick={() =>
+            onClick={() => {
               onContinue(
-                files.map((file) => ({
+                readyFiles.map((file) => ({
                   name: file.name,
                   type: file.type,
                   base64: file.base64,
                   description: file.description,
                   storage: file.storage,
                 }))
-              )
-            }
-            disabled={isUploading}
-            isLoading={isUploading}
+              );
+            }}
+            disabled={!canContinue}
+            isLoading={uploadingCount > 0}
           >
-            {isUploading ? "מעלה ראיות..." : `המשך עם ${files.length} ראיות`}
+            {uploadingCount > 0
+              ? "מעלה ראיות..."
+              : `המשך עם ${readyFiles.length} ראיות`}
           </Button>
         ) : null}
         <Button
           variant="ghost"
-          onClick={onSkip}
-          disabled={isUploading}
+          onClick={() => {
+            aborts.current.forEach((controller) => controller.abort());
+            deleteJobUploads(filesRef.current.map((file) => file.storage?.key));
+            onSkip();
+          }}
           className="w-full"
         >
           אין ראיות כרגע, להמשיך בלעדיהן
         </Button>
       </div>
+    </div>
+  );
+}
+
+function EvidenceCard({
+  file,
+  onRemove,
+  onRetry,
+  onDescribe,
+}: {
+  file: EvidencePreview;
+  onRemove: () => void;
+  onRetry: () => void;
+  onDescribe: (value: string) => void;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/80">
+      <div className="flex gap-3 p-3">
+        <EvidenceThumb file={file} />
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-[var(--color-ink)] truncate">
+              {file.name}
+            </span>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="flex-shrink-0 p-1 rounded-full hover:bg-[var(--color-error)]/10 transition-colors"
+              aria-label="הסר קובץ"
+            >
+              <IconX size={16} className="text-[var(--color-error)]" />
+            </button>
+          </div>
+          {file.status === "uploading" ? (
+            <p className="text-xs text-[var(--color-accent)]">מעלה · {file.progress}%</p>
+          ) : null}
+          {file.status === "error" ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-[var(--color-error)]">{file.error}</p>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="text-xs text-[var(--color-accent)] underline-offset-2 hover:underline"
+              >
+                נסה שוב
+              </button>
+            </div>
+          ) : null}
+          <input
+            type="text"
+            placeholder="מה הראיה הזו מראה? אפשר לכתוב גם תוך כדי העלאה"
+            value={file.description || ""}
+            onChange={(e) => onDescribe(e.target.value)}
+            className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]/60 placeholder:text-[var(--color-placeholder)]"
+          />
+        </div>
+      </div>
+      {file.status === "uploading" ? (
+        <div className="evidence-upload-track" aria-hidden>
+          <div className="evidence-upload-fill" style={{ width: `${file.progress}%` }} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EvidenceThumb({ file }: { file: EvidencePreview }) {
+  const previewSrc =
+    file.previewUrl || (file.base64 ? `data:${file.type};base64,${file.base64}` : "");
+  if (file.type.startsWith("image/") && previewSrc) {
+    return (
+      // Local blob/data preview cannot benefit from Next.js image optimization.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={previewSrc}
+        alt={file.name}
+        className="w-16 h-16 object-cover rounded-lg border border-[var(--color-border)]"
+      />
+    );
+  }
+
+  const icon =
+    file.type === "application/pdf" ? (
+      <IconFileText size={24} className="text-red-500" />
+    ) : file.type.startsWith("image/") ? (
+      <IconPhoto size={24} className="text-blue-500" />
+    ) : (
+      <IconFile size={24} className="text-gray-500" />
+    );
+
+  return (
+    <div className="w-16 h-16 flex items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-elevated)]">
+      {icon}
     </div>
   );
 }

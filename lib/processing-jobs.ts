@@ -21,7 +21,7 @@ interface RunJobOptions<T> {
   onProgress?: (job: PublicProcessingJob<T>) => void;
 }
 
-const POLL_INTERVAL_MS = 1_500;
+const POLL_INTERVAL_MS = 2_500;
 
 export function hasPendingProcessingJob(scope: string): boolean {
   return Boolean(

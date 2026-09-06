@@ -7,7 +7,7 @@ import { VoiceRecorder } from "@/components/ui/VoiceRecorder";
 import { StepHeading } from "@/components/wizard/StepHeading";
 import { IconKeyboard, IconMicrophone } from "@tabler/icons-react";
 import type { AudioInput } from "@/lib/types";
-import { base64ToBlob, uploadFileForJob } from "@/lib/job-upload";
+import { base64ToBlob, deleteJobUploads, uploadFileForJob } from "@/lib/job-upload";
 
 type InputMode = "text" | "voice";
 
@@ -34,7 +34,10 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
         name: "recording.webm",
         type: normalizedType,
       });
-      setPendingAudio({ base64, mimeType: normalizedType, storage });
+      setPendingAudio((prev) => {
+        deleteJobUploads([prev?.storage?.key]);
+        return { base64, mimeType: normalizedType, storage };
+      });
       setMode("voice");
     } catch (error) {
       setVoiceError(
@@ -150,6 +153,7 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
           <button
             type="button"
             onClick={() => {
+              deleteJobUploads([pendingAudio?.storage?.key]);
               setMode(null);
               setPendingAudio(null);
             }}

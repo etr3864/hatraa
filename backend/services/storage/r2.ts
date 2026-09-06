@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -112,6 +113,29 @@ export async function getEvidenceBuffer(key: string): Promise<{ buffer: Buffer; 
     buffer: Buffer.from(bytes),
     contentType: res.ContentType,
   };
+}
+
+export async function listTemporaryJobObjects(): Promise<
+  Array<{ key: string; lastModified?: Date }>
+> {
+  const objects: Array<{ key: string; lastModified?: Date }> = [];
+  let token: string | undefined;
+  do {
+    const page = await getClient().send(
+      new ListObjectsV2Command({
+        Bucket: bucket(),
+        Prefix: "jobs/",
+        ContinuationToken: token,
+      })
+    );
+    for (const item of page.Contents ?? []) {
+      if (item.Key) {
+        objects.push({ key: item.Key, lastModified: item.LastModified });
+      }
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return objects;
 }
 
 export function isR2Configured(): boolean {

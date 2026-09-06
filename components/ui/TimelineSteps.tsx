@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { memo, useEffect, useRef, useState, useCallback, type RefObject } from "react";
 
 const STEPS = [
   {
@@ -34,9 +34,10 @@ export function TimelineSteps() {
   const progressRef = useRef(0);
   const [activeSteps, setActiveSteps] = useState<boolean[]>([false, false, false]);
   const [pathD, setPathD] = useState("");
-  const [stepThresholds, setStepThresholds] = useState<number[]>([0.33, 0.5, 0.66]);
   const [lastPointY, setLastPointY] = useState(0);
   const [containerH, setContainerH] = useState(0);
+  const activeRef = useRef(activeSteps);
+  activeRef.current = activeSteps;
 
   const calculatePath = useCallback(() => {
     const container = containerRef.current;
@@ -49,9 +50,10 @@ export function TimelineSteps() {
     circleRefs.current.forEach((circleEl) => {
       if (!circleEl) return;
       const rect = circleEl.getBoundingClientRect();
-      const x = rect.left + rect.width / 2 - containerRect.left;
-      const y = rect.top + rect.height / 2 - containerRect.top;
-      points.push({ x, y });
+      points.push({
+        x: rect.left + rect.width / 2 - containerRect.left,
+        y: rect.top + rect.height / 2 - containerRect.top,
+      });
     });
 
     if (points.length < 3) return;
@@ -63,39 +65,15 @@ export function TimelineSteps() {
     setContainerH(h);
 
     const centerX = w / 2;
-    let d = `M ${centerX} 0`;
     const cp1y = points[0].y * 0.5;
-    d += ` C ${centerX} ${cp1y}, ${points[0].x} ${cp1y}, ${points[0].x} ${points[0].y}`;
     const mid01y = (points[0].y + points[1].y) / 2;
-    d += ` C ${points[0].x} ${mid01y}, ${points[1].x} ${mid01y}, ${points[1].x} ${points[1].y}`;
     const mid12y = (points[1].y + points[2].y) / 2;
-    d += ` C ${points[1].x} ${mid12y}, ${points[2].x} ${mid12y}, ${points[2].x} ${points[2].y}`;
-    setPathD(d);
-
-    setTimeout(() => {
-      const path = pathRef.current;
-      if (!path) return;
-      const totalLength = path.getTotalLength();
-      if (totalLength === 0) return;
-
-      const thresholds: number[] = [];
-      for (const pt of points) {
-        let closestDist = Infinity;
-        let closestT = 0;
-        const steps = 200;
-        for (let s = 0; s <= steps; s++) {
-          const t = s / steps;
-          const pathPt = path.getPointAtLength(t * totalLength);
-          const dist = Math.hypot(pathPt.x - pt.x, pathPt.y - pt.y);
-          if (dist < closestDist) {
-            closestDist = dist;
-            closestT = t;
-          }
-        }
-        thresholds.push(closestT);
-      }
-      setStepThresholds(thresholds);
-    }, 50);
+    setPathD(
+      `M ${centerX} 0` +
+        ` C ${centerX} ${cp1y}, ${points[0].x} ${cp1y}, ${points[0].x} ${points[0].y}` +
+        ` C ${points[0].x} ${mid01y}, ${points[1].x} ${mid01y}, ${points[1].x} ${points[1].y}` +
+        ` C ${points[1].x} ${mid12y}, ${points[2].x} ${mid12y}, ${points[2].x} ${points[2].y}`
+    );
   }, []);
 
   useEffect(() => {
@@ -110,46 +88,60 @@ export function TimelineSteps() {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
-
-    let rafId: number;
-
-    const handleScroll = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const rect = container.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        const scrolled = windowHeight * 0.75 - rect.top;
-        const pct = Math.max(0, Math.min(1, scrolled / rect.height));
-        progressRef.current = pct;
-
-        const path = pathRef.current;
-        if (path && pathD) {
-          const length = path.getTotalLength();
-          path.style.strokeDashoffset = `${length * (1 - pct)}`;
-        }
-
-        const newActive = stepThresholds.map((t) => pct >= t);
-        if (newActive.some((v, i) => v !== activeSteps[i])) {
-          setActiveSteps(newActive);
-        }
-      });
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      cancelAnimationFrame(rafId);
-    };
-  }, [stepThresholds, pathD, activeSteps]);
-
-  useEffect(() => {
     const path = pathRef.current;
-    if (!path || !pathD) return;
-    const length = path.getTotalLength();
-    path.style.strokeDasharray = `${length}`;
-    path.style.strokeDashoffset = `${length * (1 - progressRef.current)}`;
+    if (!container || !path || !pathD) return;
+
+    let raf = 0;
+    let current = progressRef.current;
+    const ease = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? 1
+      : 0.38;
+
+    const progressFromScroll = () => {
+      const rect = container.getBoundingClientRect();
+      const travel = Math.max(rect.height * 0.88, 1);
+      return Math.max(0, Math.min(1, (window.innerHeight * 0.7 - rect.top) / travel));
+    };
+
+    const syncCards = () => {
+      const line = window.innerHeight * 0.88;
+      const next = circleRefs.current.map((el) =>
+        Boolean(el && el.getBoundingClientRect().top < line)
+      );
+      const prev = activeRef.current;
+      if (next.some((value, i) => value !== prev[i])) {
+        activeRef.current = next;
+        setActiveSteps(next);
+      }
+    };
+
+    const tick = () => {
+      const target = progressFromScroll();
+      current += (target - current) * ease;
+      if (Math.abs(target - current) < 0.001) current = target;
+      progressRef.current = current;
+      path.style.strokeDashoffset = String(1 - current);
+      syncCards();
+
+      if (current !== target) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      raf = 0;
+    };
+
+    const kick = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener("scroll", kick, { passive: true });
+    window.addEventListener("resize", kick, { passive: true });
+    tick();
+    return () => {
+      window.removeEventListener("scroll", kick);
+      window.removeEventListener("resize", kick);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [pathD]);
 
   const fadeMid =
@@ -159,44 +151,13 @@ export function TimelineSteps() {
 
   return (
     <div ref={containerRef} className="path-read relative max-w-2xl mx-auto">
-      <svg
-        ref={svgRef}
-        className="absolute inset-0 w-full h-full pointer-events-none z-10"
-        fill="none"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        <defs>
-          <linearGradient id="path-fade" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="white" stopOpacity="1" />
-            <stop offset={`${fadeMid}%`} stopColor="white" stopOpacity="1" />
-            <stop offset={`${fadeEnd}%`} stopColor="white" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="white" stopOpacity="0" />
-          </linearGradient>
-          <mask id="path-mask">
-            <rect width="100%" height="100%" fill="url(#path-fade)" />
-          </mask>
-        </defs>
-        {pathD && (
-          <g mask="url(#path-mask)">
-            <path
-              d={pathD}
-              stroke="rgba(255,255,255,0.04)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              fill="none"
-            />
-            <path
-              ref={pathRef}
-              d={pathD}
-              stroke="var(--color-accent)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              fill="none"
-              className="will-change-[stroke-dashoffset]"
-            />
-          </g>
-        )}
-      </svg>
+      <PathInk
+        svgRef={svgRef}
+        pathRef={pathRef}
+        pathD={pathD}
+        fadeMid={fadeMid}
+        fadeEnd={fadeEnd}
+      />
 
       <div className="relative flex flex-col gap-28 py-12">
         {STEPS.map((step, i) => {
@@ -216,7 +177,7 @@ export function TimelineSteps() {
               />
 
               <div
-                className={`relative z-30 max-w-[360px] transition-opacity duration-700 ease-out ${
+                className={`relative z-30 max-w-[360px] transition-opacity duration-300 ease-out ${
                   isActive ? "opacity-100" : "opacity-0"
                 }`}
               >
@@ -234,6 +195,65 @@ export function TimelineSteps() {
     </div>
   );
 }
+
+const PathInk = memo(function PathInk({
+  svgRef,
+  pathRef,
+  pathD,
+  fadeMid,
+  fadeEnd,
+}: {
+  svgRef: RefObject<SVGSVGElement | null>;
+  pathRef: RefObject<SVGPathElement | null>;
+  pathD: string;
+  fadeMid: number;
+  fadeEnd: number;
+}) {
+  return (
+    <svg
+      ref={svgRef}
+      className="absolute inset-0 w-full h-full pointer-events-none z-10"
+      fill="none"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <defs>
+        <linearGradient id="path-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="white" stopOpacity="1" />
+          <stop offset={`${fadeMid}%`} stopColor="white" stopOpacity="1" />
+          <stop offset={`${fadeEnd}%`} stopColor="white" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+        <mask id="path-mask">
+          <rect width="100%" height="100%" fill="url(#path-fade)" />
+        </mask>
+      </defs>
+      {pathD ? (
+        <g mask="url(#path-mask)">
+          <path
+            d={pathD}
+            pathLength={1}
+            stroke="rgba(255,255,255,0.04)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            ref={pathRef}
+            className="path-ink"
+            d={pathD}
+            pathLength={1}
+            stroke="var(--color-accent)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            fill="none"
+            strokeDasharray="1"
+            strokeDashoffset="1"
+          />
+        </g>
+      ) : null}
+    </svg>
+  );
+});
 
 function StepObject({ kind }: { kind: (typeof STEPS)[number]["id"] }) {
   return (

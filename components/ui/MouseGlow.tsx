@@ -9,8 +9,10 @@ export function MouseGlow() {
     let x = window.innerWidth / 2;
     let y = window.innerHeight / 3;
     let lit: HTMLElement | null = null;
+    let spot: HTMLElement | null = null;
     let frame = 0;
     let armed = false;
+    let dirty = false;
 
     const zoneAt = (px: number, py: number) => {
       if (lit) {
@@ -23,27 +25,53 @@ export function MouseGlow() {
       return hit instanceof Element ? hit.closest<HTMLElement>("[data-glow]") : null;
     };
 
+    document.querySelectorAll<HTMLElement>("[data-glow]").forEach((zone) => {
+      zone.style.removeProperty("--glow-x");
+      zone.style.removeProperty("--glow-y");
+    });
+
+    const spotFor = (zone: HTMLElement) => {
+      zone.style.removeProperty("--glow-x");
+      zone.style.removeProperty("--glow-y");
+      const existing = zone.querySelector<HTMLElement>(":scope > .glow-spot");
+      if (existing) return existing;
+      const next = document.createElement("div");
+      next.className = "glow-spot";
+      next.dataset.glow = zone.dataset.glow ?? "";
+      next.setAttribute("aria-hidden", "true");
+      zone.prepend(next);
+      return next;
+    };
+
     const paint = () => {
       const zone = zoneAt(x, y);
       if (zone && zone !== lit) {
         lit?.classList.remove("is-lit");
         lit = zone;
+        spot = spotFor(zone);
         zone.classList.add("is-lit");
       }
       if (!zone && lit) {
         lit.classList.remove("is-lit");
         lit = null;
+        spot = null;
         return;
       }
-      if (!lit) return;
+      if (!lit || !spot) return;
       const box = lit.getBoundingClientRect();
-      lit.style.setProperty("--glow-x", `${x - box.left}px`);
-      lit.style.setProperty("--glow-y", `${y - box.top}px`);
+      spot.style.transform = `translate3d(${x - box.left}px, ${y - box.top}px, 0)`;
     };
 
     const loop = () => {
-      frame = requestAnimationFrame(loop);
+      frame = 0;
+      if (!dirty) return;
+      dirty = false;
       if (armed) paint();
+    };
+
+    const kick = () => {
+      dirty = true;
+      if (!frame) frame = requestAnimationFrame(loop);
     };
 
     const onMove = (event: PointerEvent) => {
@@ -51,25 +79,27 @@ export function MouseGlow() {
       armed = true;
       x = event.clientX;
       y = event.clientY;
+      kick();
     };
 
     const onScroll = () => {
-      if (armed) paint();
+      if (armed) kick();
     };
 
     const onLeave = () => {
       lit?.classList.remove("is-lit");
       lit = null;
+      spot = null;
       armed = false;
     };
 
-    frame = requestAnimationFrame(loop);
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
     window.addEventListener("wheel", onScroll, { capture: true, passive: true });
     document.documentElement.addEventListener("mouseleave", onLeave);
     return () => {
       onLeave();
+      document.querySelectorAll(".glow-spot").forEach((node) => node.remove());
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("wheel", onScroll, true);

@@ -5,6 +5,7 @@ import { getAnalyticsSessionId } from "@/backend/services/analytics/request-sess
 import { ensureAnalyticsSession } from "@/backend/services/analytics/track-event";
 import {
   buildTemporaryJobKey,
+  deleteEvidenceObjects,
   isR2Configured,
   uploadEvidenceObject,
 } from "@/backend/services/storage/r2";
@@ -90,6 +91,40 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!isR2Configured()) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const sessionId = getAnalyticsSessionId(request);
+  if (!sessionId) {
+    return NextResponse.json({ error: "אין הרשאה" }, { status: 401 });
+  }
+
+  try {
+    const body = (await request.json()) as { keys?: unknown };
+    const keys = Array.isArray(body.keys)
+      ? body.keys.filter((key): key is string => typeof key === "string")
+      : [];
+    const owned = [...new Set(keys)]
+      .slice(0, 8)
+      .filter((key) => isOwnedTempKey(key, sessionId));
+    await deleteEvidenceObjects(owned);
+    return NextResponse.json({ ok: true, deleted: owned.length });
+  } catch {
+    return NextResponse.json({ error: "מחיקה נכשלה" }, { status: 500 });
+  }
+}
+
+function isOwnedTempKey(key: string, sessionId: string): boolean {
+  const safeSession = sessionId.replace(/[^a-z0-9-]/gi, "");
+  return (
+    Boolean(safeSession) &&
+    key.startsWith(`jobs/${safeSession}/`) &&
+    !key.includes("..")
+  );
 }
 
 function validSize(value: number): boolean {

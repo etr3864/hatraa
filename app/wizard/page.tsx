@@ -36,6 +36,7 @@ import {
   runProcessingJob,
 } from "@/lib/processing-jobs";
 import type { LetterGenerationJobResult } from "@/backend/services/jobs/types";
+import { deleteJobUploads } from "@/lib/job-upload";
 
 const STEP_ORDER: WizardStep[] = ["input", "evidence", "confirm", "tone", "contact"];
 
@@ -160,6 +161,12 @@ export default function WizardPage() {
   }, [goTo, step]);
 
   const confirmReset = useCallback(() => {
+    if (!data.extractedData) {
+      deleteJobUploads([
+        ...data.evidenceFiles.map((file) => file.storage?.key),
+        data.audioData?.storage?.key,
+      ]);
+    }
     clearWizardEvidence();
     setShowResetDialog(false);
     setData((prev) => ({
@@ -173,12 +180,19 @@ export default function WizardPage() {
       contactData: null,
     }));
     goTo("input", "back");
-  }, [goTo]);
+  }, [data.audioData?.storage?.key, data.evidenceFiles, data.extractedData, goTo]);
 
   const confirmGoHome = useCallback(() => {
+    if (step === "input" || step === "evidence") {
+      deleteJobUploads([
+        ...data.evidenceFiles.map((file) => file.storage?.key),
+        data.audioData?.storage?.key,
+      ]);
+      clearWizardEvidence();
+    }
     setShowHomeDialog(false);
     router.push("/");
-  }, [router]);
+  }, [data.audioData?.storage?.key, data.evidenceFiles, router, step]);
 
   const handleFreeInputContinue = useCallback(
     async (rawInput: string, audioData?: AudioInput) => {

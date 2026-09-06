@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { trackClientEvent } from "@/lib/analytics";
 
+const VISIT_KEY = "hatraa:site-visit";
+
 export function SiteVisitTracker() {
   const pathname = usePathname();
 
@@ -11,6 +13,8 @@ export function SiteVisitTracker() {
     if (pathname.startsWith("/admin") || pathname.startsWith("/database")) {
       return;
     }
+    if (sessionStorage.getItem(VISIT_KEY)) return;
+    sessionStorage.setItem(VISIT_KEY, "1");
 
     const params = new URLSearchParams(window.location.search);
     trackClientEvent("SITE_VISIT", {
