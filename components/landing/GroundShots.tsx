@@ -9,7 +9,7 @@ type Shot = {
 };
 
 export function GroundShots({ items }: { items: Shot[] }) {
-  const rootRef = useRef<HTMLOlElement>(null);
+  const rootRef = useRef<HTMLOListElement>(null);
   const fillRef = useRef<HTMLSpanElement>(null);
   const progressRef = useRef(0);
   const onRef = useRef([false, false, false]);
