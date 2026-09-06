@@ -5,10 +5,12 @@ import { WhyItWorks } from "@/components/landing/WhyItWorks";
 import { Button } from "@/components/ui/Button";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { TimelineSteps } from "@/components/ui/TimelineSteps";
+import { MouseGlow } from "@/components/ui/MouseGlow";
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-bg)]" dir="rtl">
+      <MouseGlow />
       <header className="fixed top-0 left-0 right-0 z-50 header-enter">
         <div className="backdrop-blur-xl bg-[#111113]/80 border-b border-white/[0.04]">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -35,7 +37,7 @@ export default function LandingPage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden min-h-[90vh] flex items-center justify-center bg-[#0d0d0f]">
+    <section data-glow="hero" className="relative overflow-hidden min-h-[90vh] flex items-center justify-center bg-[#0d0d0f]">
       <div className="absolute inset-0 bg-radial-fade pointer-events-none" />
       <div className="absolute inset-0 bg-grid opacity-100 pointer-events-none" />
 
@@ -102,7 +104,7 @@ function Hero() {
 
 function HowItWorks() {
   return (
-    <section className="py-28 px-6 relative bg-[#0a0a0c] overflow-hidden">
+    <section data-glow="path" className="py-28 px-6 relative bg-[#0a0a0c] overflow-hidden">
       <div className="absolute inset-x-0 -top-32 h-64 bg-gradient-to-b from-[#0d0d0f] to-[#0a0a0c] pointer-events-none" />
 
       <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[#0a0a0c] to-transparent pointer-events-none z-[1]" />
@@ -338,7 +340,7 @@ function HowItWorks() {
 
 function FinalCTA() {
   return (
-    <section className="py-28 px-6 relative overflow-hidden bg-[#060607]">
+    <section data-glow="close" className="py-28 px-6 relative overflow-hidden bg-[#060607]">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
       <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#0c0c0e] to-transparent pointer-events-none" />
       <div className="absolute inset-0 bg-radial-fade pointer-events-none" />

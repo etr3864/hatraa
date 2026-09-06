@@ -1,27 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { IconFileText, IconBrain, IconDownload, IconCircleCheck } from "@tabler/icons-react";
 
 const STEPS = [
   {
-    icon: IconFileText,
+    id: "story" as const,
     number: "01",
     title: "ספר לנו מה קרה",
     description: "כתב או הקלט בקול.\nבלי טפסים, בלי שפה משפטית.\nרק תספר מה עשו לך.",
     align: "right" as const,
   },
   {
-    icon: IconBrain,
+    id: "letter" as const,
     number: "02",
-    title: "AI מנתח ומנסח",
+    title: "המכתב מנוסח",
     description: "המערכת בודקת את המקרה,\nמזהה סעיפי חוק רלוונטיים,\nומייצרת מכתב מקצועי.",
     align: "left" as const,
   },
   {
-    icon: IconDownload,
+    id: "send" as const,
     number: "03",
-    title: "הורד ושלח",
+    title: "מוכן לשליחה",
     description: "קבל PDF מוכן עם הפרטים שלך.\nשלח במייל, בוואטסאפ, או בדואר רשום.",
     align: "right" as const,
   },
@@ -64,18 +63,13 @@ export function TimelineSteps() {
     setContainerH(h);
 
     const centerX = w / 2;
-
     let d = `M ${centerX} 0`;
-
     const cp1y = points[0].y * 0.5;
     d += ` C ${centerX} ${cp1y}, ${points[0].x} ${cp1y}, ${points[0].x} ${points[0].y}`;
-
     const mid01y = (points[0].y + points[1].y) / 2;
     d += ` C ${points[0].x} ${mid01y}, ${points[1].x} ${mid01y}, ${points[1].x} ${points[1].y}`;
-
     const mid12y = (points[1].y + points[2].y) / 2;
     d += ` C ${points[1].x} ${mid12y}, ${points[2].x} ${mid12y}, ${points[2].x} ${points[2].y}`;
-
     setPathD(d);
 
     setTimeout(() => {
@@ -125,14 +119,8 @@ export function TimelineSteps() {
       rafId = requestAnimationFrame(() => {
         const rect = container.getBoundingClientRect();
         const windowHeight = window.innerHeight;
-        const containerTop = rect.top;
-        const containerHeight = rect.height;
-
-        const start = windowHeight * 0.75;
-        const scrolled = start - containerTop;
-        const totalScrollable = containerHeight;
-
-        const pct = Math.max(0, Math.min(1, scrolled / totalScrollable));
+        const scrolled = windowHeight * 0.75 - rect.top;
+        const pct = Math.max(0, Math.min(1, scrolled / rect.height));
         progressRef.current = pct;
 
         const path = pathRef.current;
@@ -142,8 +130,7 @@ export function TimelineSteps() {
         }
 
         const newActive = stepThresholds.map((t) => pct >= t);
-        const changed = newActive.some((v, i) => v !== activeSteps[i]);
-        if (changed) {
+        if (newActive.some((v, i) => v !== activeSteps[i])) {
           setActiveSteps(newActive);
         }
       });
@@ -165,20 +152,13 @@ export function TimelineSteps() {
     path.style.strokeDashoffset = `${length * (1 - progressRef.current)}`;
   }, [pathD]);
 
-  const isLastActive = activeSteps[2];
-
   const fadeMid =
-    containerH > 0
-      ? Math.max(0, Math.min(100, ((lastPointY - 20) / containerH) * 100))
-      : 70;
+    containerH > 0 ? Math.max(0, Math.min(100, ((lastPointY - 20) / containerH) * 100)) : 70;
   const fadeEnd =
-    containerH > 0
-      ? Math.max(0, Math.min(100, (lastPointY / containerH) * 100))
-      : 85;
+    containerH > 0 ? Math.max(0, Math.min(100, (lastPointY / containerH) * 100)) : 85;
 
   return (
-    <div ref={containerRef} className="relative max-w-2xl mx-auto">
-      {/* SVG winding path */}
+    <div ref={containerRef} className="path-read relative max-w-2xl mx-auto">
       <svg
         ref={svgRef}
         className="absolute inset-0 w-full h-full pointer-events-none z-10"
@@ -220,78 +200,31 @@ export function TimelineSteps() {
 
       <div className="relative flex flex-col gap-28 py-12">
         {STEPS.map((step, i) => {
-          const Icon = step.icon;
           const isActive = activeSteps[i];
           const isRight = step.align === "right";
-          const isLast = i === STEPS.length - 1;
 
           return (
             <div
-              key={step.number}
-              data-step={i}
+              key={step.id}
               className={`flex items-center gap-5 ${isRight ? "flex-row" : "flex-row-reverse"}`}
             >
-              {/* Number circle */}
-              <div className="relative flex-shrink-0 z-20">
-                <div
-                  ref={(el) => { circleRefs.current[i] = el; }}
-                  className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${
-                    isActive
-                      ? "border-[var(--color-accent)] bg-[#1a1610] scale-110 shadow-[0_0_28px_-4px_rgba(201,168,76,0.6)]"
-                      : "border-white/[0.12] bg-[#0e0e11]"
-                  }`}
-                >
-                  <span
-                    className={`text-base font-bold transition-colors duration-500 ${
-                      isActive ? "text-[var(--color-accent)]" : "text-[var(--color-subtle)]"
-                    }`}
-                  >
-                    {step.number}
-                  </span>
-                </div>
-                {/* Pulse ring on last step */}
-                {isLast && isLastActive && (
-                  <div className="absolute inset-0 rounded-full border-2 border-[var(--color-accent)]/40 animate-ping" />
-                )}
-              </div>
-
-              {/* Content card */}
               <div
-                className={`relative z-30 max-w-[260px] transition-all duration-700 ease-out ${
-                  isActive
-                    ? "opacity-100 translate-x-0 translate-y-0"
-                    : `opacity-0 ${isRight ? "translate-x-8" : "-translate-x-8"} translate-y-4`
+                ref={(el) => {
+                  circleRefs.current[i] = el;
+                }}
+                className={`path-node z-20 ${isActive ? "is-on" : ""}`}
+              />
+
+              <div
+                className={`relative z-30 max-w-[360px] transition-opacity duration-700 ease-out ${
+                  isActive ? "opacity-100" : "opacity-0"
                 }`}
               >
-                <div className={`p-4 rounded-xl bg-[#13131a]/60 backdrop-blur-lg border border-white/[0.07] hover:bg-[#1a1a24]/70 hover:border-white/[0.12] hover:scale-[1.02] hover:-translate-y-0.5 ${isActive ? "border-[var(--color-accent)]/20" : ""} ${isLast && isLastActive ? "animate-[celebrateGlow_2s_ease-in-out_infinite]" : ""} transition-all duration-300 cursor-default`}>
-                  <div
-                    className={`w-8 h-8 rounded-md flex items-center justify-center mb-2.5 transition-all duration-500 ${
-                      isActive
-                        ? "bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30"
-                        : "bg-white/[0.04] border border-white/[0.08]"
-                    }`}
-                  >
-                    {isLast && isLastActive ? (
-                      <IconCircleCheck size={15} className="text-[var(--color-accent)] animate-pulse" />
-                    ) : (
-                      <Icon
-                        size={15}
-                        className={`transition-colors duration-500 ${
-                          isActive ? "text-[var(--color-accent)]" : "text-[var(--color-subtle)]"
-                        }`}
-                      />
-                    )}
-                  </div>
-                  <h3
-                    className={`text-sm font-semibold mb-1 transition-colors duration-500 ${
-                      isActive ? "text-[var(--color-ink)]" : "text-[var(--color-subtle)]"
-                    }`}
-                  >
-                    {step.title}
-                  </h3>
-                  <p className="text-xs text-[var(--color-body)] leading-relaxed whitespace-pre-line">
-                    {step.description}
-                  </p>
+                <StepObject kind={step.id} />
+                <div className="path-copy">
+                  <p className="path-step-num">{step.number}</p>
+                  <h3 className="path-step-title">{step.title}</h3>
+                  <p className="path-step-body">{step.description}</p>
                 </div>
               </div>
             </div>
@@ -299,5 +232,61 @@ export function TimelineSteps() {
         })}
       </div>
     </div>
+  );
+}
+
+function StepObject({ kind }: { kind: (typeof STEPS)[number]["id"] }) {
+  return (
+    <div className={`path-scrap path-scrap-${kind}`} aria-hidden>
+      {kind === "story" ? <StoryInk /> : null}
+      {kind === "letter" ? <LetterChip /> : null}
+      {kind === "send" ? <MailChip /> : null}
+    </div>
+  );
+}
+
+function StoryInk() {
+  return (
+    <svg viewBox="0 0 160 72" className="w-full h-auto" fill="none">
+      <path
+        d="M18 28 C36 18, 54 38, 78 26 C96 18, 118 34, 142 22"
+        stroke="#1a1a1a"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M22 42 C48 36, 70 48, 102 40 C124 34, 138 44, 148 40"
+        stroke="#1a1a1a"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M20 54 C40 50, 62 58, 88 52"
+        stroke="#c9a84c"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function LetterChip() {
+  return (
+    <>
+      <div className="path-scrap-goldbar" />
+      <p className="path-scrap-subject">הנדון: דרישה לתשלום</p>
+      <div className="path-scrap-rules" />
+    </>
+  );
+}
+
+function MailChip() {
+  return (
+    <svg viewBox="0 0 160 88" className="w-full h-auto" fill="none">
+      <rect x="18" y="22" width="124" height="52" rx="3" stroke="#1a1a1a" strokeWidth="1.3" />
+      <path d="M18 24 L80 52 L142 24" stroke="#c9a84c" strokeWidth="1.4" />
+      <circle cx="80" cy="50" r="11" fill="#c9a84c" />
+      <circle cx="80" cy="50" r="6" fill="none" stroke="#f7f3ea" strokeWidth="1.2" />
+    </svg>
   );
 }

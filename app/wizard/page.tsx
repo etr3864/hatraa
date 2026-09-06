@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ConfirmData } from "@/components/wizard/ConfirmStep";
 import type { ContactData } from "@/components/wizard/ContactStep";
+import { MouseGlow } from "@/components/ui/MouseGlow";
 import { WizardChrome } from "@/components/wizard/WizardChrome";
 import { WizardDialogs } from "@/components/wizard/WizardDialogs";
 import { ResumeLetterBanner } from "@/components/wizard/ResumeLetterBanner";
@@ -337,7 +338,8 @@ export default function WizardPage() {
   }, [abortController, goTo]);
 
   return (
-    <div className="wizard-shell relative" dir="rtl">
+    <div className="wizard-shell relative" data-glow="studio" dir="rtl">
+      <MouseGlow />
       <div className="wizard-shell-grain" aria-hidden />
 
       <WizardChrome

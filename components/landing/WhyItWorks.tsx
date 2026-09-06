@@ -7,7 +7,7 @@ import { SIGNATURE_PRICE } from "@/lib/constants";
 
 export function WhyItWorks() {
   return (
-    <section className="why-section py-16 md:py-28 px-4 md:px-6 relative overflow-hidden">
+    <section data-glow="paper" className="why-section py-16 md:py-28 px-4 md:px-6 relative overflow-hidden">
       <div className="why-section-glow" />
       <div className="why-section-frame" />
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#c9a84c]/30 to-transparent" />
