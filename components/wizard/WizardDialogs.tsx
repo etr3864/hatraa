@@ -110,7 +110,7 @@ function Dialog(props: {
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={props.onClose}
       />
-      <div className="relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl max-w-sm w-full p-8 flex flex-col gap-4 scale-in">
+      <div className="relative wizard-dialog rounded-2xl max-w-sm w-full p-8 flex flex-col gap-4 scale-in">
         <h3 className="text-lg font-bold text-[var(--color-ink)]">
           {props.title}
         </h3>

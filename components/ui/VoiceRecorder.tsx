@@ -120,7 +120,7 @@ export function VoiceRecorder({ onAudioReady, onError, disabled }: VoiceRecorder
         });
       }, 1000);
     } catch {
-      onError("לא הצלחנו לגשת למיקרופון. אפשר גם לכתוב את הסיפור שלך.");
+      onError("לא הצלחנו לגשת למיקרופון. אפשר גם לכתוב את הסיפור.");
     }
   }, [startWaveform, stopRecording, onAudioReady, onError]);
 
@@ -169,7 +169,7 @@ export function VoiceRecorder({ onAudioReady, onError, disabled }: VoiceRecorder
       {state === "recording" ? (
         <button
           onClick={stopRecording}
-          className="flex items-center gap-2 rounded-lg px-5 py-3 bg-[var(--color-error)] text-white font-medium hover:opacity-85 transition-opacity"
+          className="flex items-center gap-2 rounded-full px-6 py-3 bg-[var(--color-error)] text-white font-medium hover:opacity-85 transition-opacity"
         >
           <IconPlayerStop size={18} />
           עצור הקלטה
@@ -179,8 +179,8 @@ export function VoiceRecorder({ onAudioReady, onError, disabled }: VoiceRecorder
           onClick={startRecording}
           disabled={disabled || state === "processing"}
           className={clsx(
-            "flex items-center gap-2 rounded-lg px-5 py-3 font-medium transition-opacity",
-            "border border-[var(--color-border)] text-[var(--color-accent)] bg-[var(--color-surface)]",
+            "flex items-center gap-2 rounded-full px-6 py-3 font-medium transition-opacity",
+            "border border-[var(--color-accent)]/35 text-[var(--color-accent)] bg-[var(--color-surface)]",
             "hover:border-[var(--color-primary)] hover:opacity-85",
             "disabled:opacity-50 disabled:cursor-not-allowed"
           )}
@@ -193,7 +193,7 @@ export function VoiceRecorder({ onAudioReady, onError, disabled }: VoiceRecorder
           ) : (
             <>
               <IconMicrophone size={18} />
-              אני רוצה לדבר
+              התחלת הקלטה
             </>
           )}
         </button>

@@ -12,13 +12,13 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] hover:scale-[1.02] hover:shadow-[0_8px_30px_-8px_rgba(201,168,76,0.4)] active:scale-[0.98]",
+    "ui-btn ui-btn-primary bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold",
   gold:
-    "bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] hover:scale-[1.02] hover:shadow-[0_8px_30px_-8px_rgba(201,168,76,0.4)] active:scale-[0.98]",
+    "ui-btn ui-btn-primary bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold",
   ghost:
-    "bg-white/[0.04] backdrop-blur-md border border-white/[0.08] text-[var(--color-body)] hover:text-[var(--color-ink)] hover:bg-white/[0.08] hover:border-white/[0.15] hover:scale-[1.02] active:scale-[0.98]",
+    "ui-btn ui-btn-ghost bg-white/[0.04] backdrop-blur-md border border-white/[0.08] text-[var(--color-body)]",
   subtle:
-    "bg-white/[0.03] backdrop-blur-sm text-[var(--color-body)] hover:text-[var(--color-ink)] hover:bg-white/[0.06] hover:scale-[1.01] active:scale-[0.99]",
+    "ui-btn ui-btn-subtle bg-white/[0.03] backdrop-blur-sm text-[var(--color-body)]",
 };
 
 export function Button({

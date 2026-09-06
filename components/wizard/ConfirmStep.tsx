@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { StepHeading } from "@/components/wizard/StepHeading";
 import type { ExtractedData, Category } from "@/lib/types";
 import { CATEGORIES } from "@/lib/constants";
 
@@ -42,16 +43,13 @@ export function ConfirmStep({ extracted, initialData, onContinue }: ConfirmStepP
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-[var(--color-ink)] mb-2">
-          הבנו את המקרה שלך
-        </h2>
-        <p className="text-sm text-[var(--color-body)]">
-          מה שמצאנו כבר ממולא. תקן אם צריך.
-        </p>
-      </div>
+      <StepHeading
+        kicker="שלב 3 · פרטים"
+        title="הבנו את המקרה"
+        subtitle="מה שנמצא כבר ממולא. אפשר לתקן לפני שממשיכים."
+      />
 
-      <div className="flex flex-col gap-4">
+      <div className="wizard-panel flex flex-col gap-4">
         <Input
           label="שם הצד השני (חברה / אדם)"
           value={form.respondentName}

@@ -12,7 +12,7 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 header-enter">
         <div className="backdrop-blur-xl bg-[#111113]/80 border-b border-white/[0.04]">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <BrandLogo size="header" className="opacity-95" />
+            <BrandLogo size="header" className="header-brand opacity-95" />
             <Link href="/wizard">
               <Button variant="primary" className="text-sm px-6 py-2.5">
                 ייצר מכתב
@@ -76,7 +76,7 @@ function Hero() {
           תבדוק סעיפי חוק רלוונטיים, ותייצר מכתב התראה מקצועי מוכן לשליחה.
         </p>
 
-        <div className="fade-in-up" style={{ animationDelay: "0.5s", opacity: 0 }}>
+        <div className="hero-cta fade-in-up" style={{ animationDelay: "0.5s", opacity: 0 }}>
           <Link href="/wizard">
             <Button variant="primary" className="text-lg px-14 py-5">
               התחל עכשיו

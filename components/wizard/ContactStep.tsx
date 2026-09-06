@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { StepHeading } from "@/components/wizard/StepHeading";
+import { clsx } from "@/lib/utils";
 
 export type SenderType = "individual" | "company";
 
@@ -65,41 +67,30 @@ export function ContactStep({ onContinue, isLoading, initialData }: ContactStepP
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-[var(--color-ink)] mb-2">
-          הפרטים שלך
-        </h2>
-        <p className="text-sm text-[var(--color-body)]">
-          הפרטים האלה יופיעו במכתב כפרטי השולח
-        </p>
-      </div>
+      <StepHeading
+        kicker="שלב 5 · שולח"
+        title="פרטי השולח"
+        subtitle="הפרטים האלה יופיעו במכתב."
+      />
 
-      <div className="flex rounded-xl border border-[var(--color-border)] overflow-hidden">
+      <div className="wizard-segment">
         <button
           type="button"
           onClick={() => setForm((prev) => ({ ...prev, senderType: "individual" }))}
-          className={`flex-1 py-3 text-sm font-medium transition-all duration-200 ${
-            !isCompany
-              ? "bg-[var(--color-accent)] text-[var(--color-bg)]"
-              : "bg-[var(--color-surface)] text-[var(--color-body)] hover:bg-[var(--color-elevated)]"
-          }`}
+          className={clsx(!isCompany && "is-on")}
         >
           אדם פרטי
         </button>
         <button
           type="button"
           onClick={() => setForm((prev) => ({ ...prev, senderType: "company" }))}
-          className={`flex-1 py-3 text-sm font-medium transition-all duration-200 ${
-            isCompany
-              ? "bg-[var(--color-accent)] text-[var(--color-bg)]"
-              : "bg-[var(--color-surface)] text-[var(--color-body)] hover:bg-[var(--color-elevated)]"
-          }`}
+          className={clsx(isCompany && "is-on")}
         >
           חברה בע״מ
         </button>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="wizard-panel flex flex-col gap-4">
         {isCompany && (
           <>
             <Input
@@ -204,7 +195,7 @@ export function ContactStep({ onContinue, isLoading, initialData }: ContactStepP
           className="mt-1 h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-accent)] cursor-pointer flex-shrink-0"
         />
         <span className="text-xs text-[var(--color-subtle)] leading-relaxed">
-          אני מאשר/ת את{" "}
+          מאשרים את{" "}
           <Link
             href="/terms"
             target="_blank"
@@ -234,7 +225,7 @@ export function ContactStep({ onContinue, isLoading, initialData }: ContactStepP
         disabled={!canContinue}
         isLoading={isLoading}
       >
-        ייצר את המכתב שלי
+        ייצור המכתב
       </Button>
     </div>
   );

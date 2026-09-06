@@ -6,6 +6,7 @@ import { EvidenceStep } from "./EvidenceStep";
 import { FreeInputStep } from "./FreeInputStep";
 import { GeneratingLoader } from "./GeneratingLoader";
 import { ToneStep } from "./ToneStep";
+import { WizardWaiting } from "./WizardWaiting";
 import type {
   AudioInput,
   EvidenceFile,
@@ -36,6 +37,7 @@ export interface WizardViewData {
 
 interface WizardStepContentProps {
   step: WizardStep;
+  stepDir?: "forward" | "back";
   data: WizardViewData;
   error: string;
   isExtracting: boolean;
@@ -52,16 +54,16 @@ interface WizardStepContentProps {
 }
 
 export function WizardStepContent(props: WizardStepContentProps) {
-  const { step, data } = props;
+  const { step, data, stepDir = "forward" } = props;
   return (
-    <main className="max-w-xl mx-auto px-6 pt-24 pb-16 min-h-screen flex flex-col justify-start">
+    <main className="relative z-10 max-w-xl mx-auto px-5 pt-28 pb-20 min-h-screen flex flex-col justify-start">
       {props.topSlot}
       {props.error && (step === "input" || step === "evidence") && (
         <ErrorMessage message={props.error} className="mb-6" />
       )}
 
       {step === "input" && (
-        <div key="input" className="wizard-step">
+        <div key="input" className="wizard-step" data-dir={stepDir}>
           <FreeInputStep
             onContinue={props.onInput}
             isProcessing={props.isExtracting}
@@ -71,7 +73,7 @@ export function WizardStepContent(props: WizardStepContentProps) {
       )}
 
       {step === "evidence" && (
-        <div key="evidence" className="wizard-step">
+        <div key="evidence" className="wizard-step" data-dir={stepDir}>
           <EvidenceStep
             initialFiles={
               data.evidenceFiles.length > 0 ? data.evidenceFiles : undefined
@@ -83,19 +85,19 @@ export function WizardStepContent(props: WizardStepContentProps) {
       )}
 
       {step === "extracting" && (
-        <ProcessingStatus
+        <WizardWaiting
           title={
             props.processingStage ||
             (props.isAudioMode
               ? "מתמלל ומנתח את ההקלטה..."
               : "מנתח את הפרטים...")
           }
-          subtitle="אפשר לסגור את הדפדפן ולחזור מאוחר יותר"
+          subtitle="אפשר לסגור ולחזור מאוחר יותר. העיבוד ממשיך."
         />
       )}
 
       {step === "confirm" && data.extractedData && (
-        <div key="confirm" className="wizard-step">
+        <div key="confirm" className="wizard-step" data-dir={stepDir}>
           <ConfirmStep
             extracted={data.extractedData}
             initialData={data.confirmData}
@@ -105,7 +107,7 @@ export function WizardStepContent(props: WizardStepContentProps) {
       )}
 
       {step === "tone" && (
-        <div key="tone" className="wizard-step">
+        <div key="tone" className="wizard-step" data-dir={stepDir}>
           <ToneStep
             initialTone={data.tone}
             initialGoal={data.goal}
@@ -115,7 +117,7 @@ export function WizardStepContent(props: WizardStepContentProps) {
       )}
 
       {step === "contact" && (
-        <div key="contact" className="wizard-step">
+        <div key="contact" className="wizard-step" data-dir={stepDir}>
           {props.error && <ErrorMessage message={props.error} className="mb-4" />}
           <ContactStep
             initialData={data.contactData}
@@ -136,26 +138,12 @@ export function WizardStepContent(props: WizardStepContentProps) {
       ) : null}
 
       {step === "generating" && (!data.confirmData || !data.tone) && (
-        <ProcessingStatus
+        <WizardWaiting
           title={props.processingStage || "ממשיך ליצור את המכתב"}
-          subtitle="אפשר לסגור את הדפדפן ולחזור מאוחר יותר"
+          subtitle="אפשר לסגור ולחזור מאוחר יותר. העיבוד ממשיך."
         />
       )}
     </main>
-  );
-}
-
-function ProcessingStatus(props: { title: string; subtitle: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] gap-8 fade-in">
-      <div className="w-12 h-12 rounded-full border-2 border-[var(--color-accent)]/20 border-t-[var(--color-accent)] animate-spin" />
-      <div className="text-center">
-        <p className="text-lg font-medium text-[var(--color-ink)] mb-2">
-          {props.title}
-        </p>
-        <p className="text-sm text-[var(--color-subtle)]">{props.subtitle}</p>
-      </div>
-    </div>
   );
 }
 

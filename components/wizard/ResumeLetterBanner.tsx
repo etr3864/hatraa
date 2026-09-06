@@ -22,7 +22,7 @@ export function ResumeLetterBanner() {
   const paid = isPaidLetterResult(stored);
 
   return (
-    <div className="mb-6 rounded-xl border border-[var(--color-accent)]/35 bg-[var(--color-accent)]/10 px-4 py-3 flex items-start gap-3">
+    <div className="mb-6 rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/[0.08] px-4 py-3.5 flex items-start gap-3">
       <IconFileText
         size={20}
         className="mt-0.5 flex-shrink-0 text-[var(--color-accent)]"

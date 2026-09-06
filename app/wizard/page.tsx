@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { IconArrowRight } from "@tabler/icons-react";
 import type { ConfirmData } from "@/components/wizard/ConfirmStep";
 import type { ContactData } from "@/components/wizard/ContactStep";
+import { WizardChrome } from "@/components/wizard/WizardChrome";
 import { WizardDialogs } from "@/components/wizard/WizardDialogs";
 import { ResumeLetterBanner } from "@/components/wizard/ResumeLetterBanner";
 import {
@@ -60,8 +60,14 @@ export default function WizardPage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [processingStage, setProcessingStage] = useState("");
+  const [stepDir, setStepDir] = useState<"forward" | "back">("forward");
 
   const stepIndex = STEP_ORDER.indexOf(step);
+
+  const goTo = useCallback((next: WizardStep, dir: "forward" | "back" = "forward") => {
+    setStepDir(dir);
+    setStep(next);
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -83,7 +89,7 @@ export default function WizardPage() {
     const timeout = window.setTimeout(async () => {
       try {
         if (hasPendingProcessingJob("wizard-generation")) {
-          setStep("generating");
+          goTo("generating");
           setIsGenerating(true);
           setProcessingStage("משחזר את יצירת המכתב");
           const result = await runProcessingJob<LetterGenerationJobResult>({
@@ -101,7 +107,7 @@ export default function WizardPage() {
         }
 
         if (hasPendingProcessingJob("wizard-extraction")) {
-          setStep("extracting");
+          goTo("extracting");
           setIsExtracting(true);
           setProcessingStage("משחזר את חילוץ הפרטים");
           const extracted = await runProcessingJob<ExtractedData>({
@@ -117,14 +123,14 @@ export default function WizardPage() {
             rawInput: extracted.rawTranscription || previous.rawInput,
             extractedData: extracted,
           }));
-          setStep("confirm");
+          goTo("confirm");
         }
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           setExtractError(
             error instanceof Error ? error.message : "שחזור העיבוד נכשל"
           );
-          setStep("input");
+          goTo("input", "back");
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -138,19 +144,19 @@ export default function WizardPage() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [router]);
+  }, [goTo, router]);
 
   const goBack = useCallback(() => {
     if (step === "evidence") {
-      setStep("input");
+      goTo("input", "back");
     } else if (step === "confirm") {
-      setStep("evidence");
+      goTo("evidence", "back");
     } else if (step === "tone") {
-      setStep("confirm");
+      goTo("confirm", "back");
     } else if (step === "contact") {
-      setStep("tone");
+      goTo("tone", "back");
     }
-  }, [step]);
+  }, [goTo, step]);
 
   const confirmReset = useCallback(() => {
     clearWizardEvidence();
@@ -165,8 +171,8 @@ export default function WizardPage() {
       goal: null,
       contactData: null,
     }));
-    setStep("input");
-  }, []);
+    goTo("input", "back");
+  }, [goTo]);
 
   const confirmGoHome = useCallback(() => {
     setShowHomeDialog(false);
@@ -180,9 +186,9 @@ export default function WizardPage() {
         rawInput,
         audioData: audioData || undefined,
       }));
-      setStep("evidence");
+      goTo("evidence");
     },
-    []
+    [goTo]
   );
 
   const runExtraction = async (
@@ -193,7 +199,7 @@ export default function WizardPage() {
     const hasAudio = !!audioData;
     setIsAudioMode(hasAudio);
     setIsExtracting(true);
-    setStep("extracting");
+    goTo("extracting");
     setExtractError("");
     setProcessingStage(hasAudio ? "מתמלל ומנתח" : "מנתח את הפרטים");
 
@@ -210,10 +216,10 @@ export default function WizardPage() {
         rawInput: rawInput || extracted.rawTranscription || "",
         extractedData: extracted,
       }));
-      setStep("confirm");
+      goTo("confirm");
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : "שגיאה בחילוץ הפרטים");
-      setStep("evidence");
+      goTo("evidence", "back");
     } finally {
       setIsExtracting(false);
       setIsAudioMode(false);
@@ -248,19 +254,19 @@ export default function WizardPage() {
       inputMode: data.audioData ? "audio" : "text",
       hasEvidence: data.evidenceFiles.length > 0,
     });
-    setStep("tone");
-  }, [data.audioData, data.evidenceFiles.length]);
+    goTo("tone");
+  }, [data.audioData, data.evidenceFiles.length, goTo]);
 
   const handleToneContinue = useCallback((tone: Tone, goal: Goal) => {
     setData((prev) => ({ ...prev, tone, goal }));
-    setStep("contact");
-  }, []);
+    goTo("contact");
+  }, [goTo]);
 
   const handleContactContinue = useCallback(
     async (contactData: ContactData) => {
       setData((prev) => ({ ...prev, contactData }));
       setIsGenerating(true);
-      setStep("generating");
+      goTo("generating");
 
       const controller = new AbortController();
       setAbortController(controller);
@@ -306,19 +312,19 @@ export default function WizardPage() {
         router.push("/result");
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
-          setStep("contact");
+          goTo("contact", "back");
           setIsGenerating(false);
           return;
         }
         const message = err instanceof Error ? err.message : "שגיאה בייצור המכתב";
         setExtractError(message);
-        setStep("contact");
+        goTo("contact", "back");
         setIsGenerating(false);
       } finally {
         setAbortController(null);
       }
     },
-    [data, router]
+    [data, goTo, router]
   );
 
   const confirmCancelGeneration = useCallback(() => {
@@ -327,71 +333,31 @@ export default function WizardPage() {
       abortController.abort();
     }
     setIsGenerating(false);
-    setStep("contact");
-  }, [abortController]);
+    goTo("contact", "back");
+  }, [abortController, goTo]);
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]" dir="rtl">
-      <header className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg)]/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50">
-        <div className="max-w-xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {step !== "generating" && step !== "extracting" && (
-              <button
-                onClick={() => {
-                  if (step === "input" && !data.extractedData) {
-                    router.push("/");
-                  } else {
-                    setShowHomeDialog(true);
-                  }
-                }}
-                className="text-sm text-[var(--color-body)] hover:text-[var(--color-ink)] transition-colors"
-              >
-                דף הבית
-              </button>
-            )}
-            {stepIndex > 0 && step !== "generating" && step !== "extracting" && (
-              <button
-                onClick={goBack}
-                className="flex items-center gap-1 text-sm text-[var(--color-body)] hover:text-[var(--color-ink)] transition-colors"
-              >
-                <IconArrowRight size={14} />
-                <span>חזור</span>
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            {step === "generating" && (
-              <button
-                onClick={() => setShowCancelDialog(true)}
-                className="text-sm text-[var(--color-error)] hover:opacity-70 transition-opacity font-medium"
-              >
-                הפסק להמתין
-              </button>
-            )}
-            {step !== "generating" && step !== "extracting" && (
-              <span className="text-xs text-[var(--color-subtle)]">
-                שלב {stepIndex + 1} מתוך 5
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="wizard-shell relative" dir="rtl">
+      <div className="wizard-shell-grain" aria-hidden />
 
-      {step !== "generating" && step !== "extracting" && stepIndex >= 0 && (
-        <div className="fixed top-[65px] left-0 right-0 z-40">
-          <div className="max-w-xl mx-auto px-6">
-            <div className="h-0.5 bg-[var(--color-border-subtle)] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[var(--color-accent)] rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${((stepIndex + 1) / STEP_ORDER.length) * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <WizardChrome
+        step={step}
+        stepIndex={stepIndex}
+        totalSteps={STEP_ORDER.length}
+        onHome={() => {
+          if (step === "input" && !data.extractedData) {
+            router.push("/");
+          } else {
+            setShowHomeDialog(true);
+          }
+        }}
+        onBack={goBack}
+        onCancel={() => setShowCancelDialog(true)}
+      />
 
       <WizardStepContent
         step={step}
+        stepDir={stepDir}
         data={data}
         error={extractError}
         isExtracting={isExtracting}

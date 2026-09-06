@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { VoiceRecorder } from "@/components/ui/VoiceRecorder";
+import { StepHeading } from "@/components/wizard/StepHeading";
 import { IconKeyboard, IconMicrophone } from "@tabler/icons-react";
 import type { AudioInput } from "@/lib/types";
 import { base64ToBlob, uploadFileForJob } from "@/lib/job-upload";
@@ -53,66 +54,58 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
   };
 
   const canContinue =
-    (pendingAudio !== null) || (mode === "text" && text.trim().length >= 20);
+    pendingAudio !== null || (mode === "text" && text.trim().length >= 20);
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-[var(--color-ink)] mb-3">
-          ספר לנו מה קרה
-        </h2>
-        <p className="text-[var(--color-body)] text-base max-w-sm mx-auto">
-          בלי שפה משפטית, בלי טפסים. רק תספר את הסיפור שלך
-        </p>
-      </div>
+      <StepHeading
+        kicker="שלב 1 · הסיפור"
+        title="מה קרה?"
+        subtitle="בלי שפה משפטית, בלי טפסים. רק הסיפור."
+      />
 
       {!mode && (
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={() => setMode("text")}
-            className="flex flex-col items-center gap-4 p-8 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-elevated)] transition-all duration-200 cursor-pointer group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-[var(--color-elevated)] border border-[var(--color-border)] flex items-center justify-center group-hover:border-[var(--color-accent)]/40 transition-colors">
-              <IconKeyboard size={22} className="text-[var(--color-accent)]" />
-            </div>
-            <span className="text-sm font-medium text-[var(--color-ink)]">
-              אני מעדיף לכתוב
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" onClick={() => setMode("text")} className="wizard-mode">
+            <span className="wizard-mode-icon">
+              <IconKeyboard size={20} />
             </span>
+            <span className="text-sm font-semibold text-[var(--color-ink)]">לכתוב</span>
+            <span className="text-xs text-[var(--color-subtle)]">במילים חופשיות</span>
           </button>
-
-          <div
-            className="flex flex-col items-center gap-4 p-8 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-elevated)] transition-all duration-200 cursor-pointer group"
-            onClick={() => setMode("voice")}
-          >
-            <div className="w-12 h-12 rounded-xl bg-[var(--color-elevated)] border border-[var(--color-border)] flex items-center justify-center group-hover:border-[var(--color-accent)]/40 transition-colors">
-              <IconMicrophone size={22} className="text-[var(--color-accent)]" />
-            </div>
-            <span className="text-sm font-medium text-[var(--color-ink)]">
-              אני מעדיף להקליט
+          <button type="button" onClick={() => setMode("voice")} className="wizard-mode">
+            <span className="wizard-mode-icon">
+              <IconMicrophone size={20} />
             </span>
-          </div>
+            <span className="text-sm font-semibold text-[var(--color-ink)]">להקליט</span>
+            <span className="text-xs text-[var(--color-subtle)]">לספר בקול</span>
+          </button>
         </div>
       )}
 
       {mode === "text" && (
         <div className="flex flex-col gap-4">
           <Textarea
-            placeholder="למשל: חברת הביטוח לא השיבה כבר חודשיים. פניתי אליהם שלוש פעמים ואמרו שיחזרו אליי אבל כלום לא קורה..."
+            placeholder="למשל: חברת הביטוח לא השיבה כבר חודשיים. פניתי אליהם שלוש פעמים ואמרו שיחזרו, אבל כלום לא קורה..."
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={7}
             autoFocus
-            className="text-base"
+            className="text-base rounded-xl min-h-[180px]"
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-[var(--color-subtle)]">
-              {text.length < 20 ? `עוד ${20 - text.length} תווים לפחות` : ""}
+              {text.length < 20 ? `עוד ${20 - text.length} תווים לפחות` : "אפשר להמשיך"}
             </span>
             <button
-              onClick={() => { setMode(null); setText(""); }}
+              type="button"
+              onClick={() => {
+                setMode(null);
+                setText("");
+              }}
               className="text-xs text-[var(--color-subtle)] hover:text-[var(--color-accent)] transition-colors"
             >
-              חזור לבחירה
+              חזרה לבחירה
             </button>
           </div>
         </div>
@@ -121,41 +114,48 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
       {mode === "voice" && (
         <div className="flex flex-col gap-4">
           {pendingAudio ? (
-            <div className="p-6 rounded-xl bg-[var(--color-success)]/10 border border-[var(--color-success)]/20 text-center">
+            <div className="wizard-panel text-center py-8">
               <p className="text-sm font-medium text-[var(--color-success)]">
-                ההקלטה מוכנה. לחץ המשך
+                ההקלטה מוכנה. אפשר להמשיך
               </p>
             </div>
           ) : (
-            <VoiceRecorder
-              onAudioReady={handleAudioReady}
-              onError={(msg) => {
-                setVoiceError(msg);
-                setMode("text");
-              }}
-              disabled={isUploadingAudio}
-            />
+            <div className="wizard-panel py-8">
+              <VoiceRecorder
+                onAudioReady={handleAudioReady}
+                onError={(msg) => {
+                  setVoiceError(msg);
+                  setMode("text");
+                }}
+                disabled={isUploadingAudio}
+              />
+            </div>
           )}
 
           {pendingAudio && (
             <div className="flex flex-col gap-3">
               <p className="text-xs text-[var(--color-subtle)] text-center">
-                רוצה להוסיף פרטים בכתיבה?
+                רוצים להוסיף פרטים בכתיבה?
               </p>
               <Textarea
                 placeholder="הוספות אופציונליות..."
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={3}
+                className="rounded-xl"
               />
             </div>
           )}
 
           <button
-            onClick={() => { setMode(null); setPendingAudio(null); }}
+            type="button"
+            onClick={() => {
+              setMode(null);
+              setPendingAudio(null);
+            }}
             className="text-xs text-[var(--color-subtle)] hover:text-[var(--color-accent)] transition-colors text-center"
           >
-            חזור לבחירה
+            חזרה לבחירה
           </button>
         </div>
       )}
@@ -171,7 +171,6 @@ export function FreeInputStep({ onContinue, isProcessing, initialText }: FreeInp
           onClick={handleContinue}
           disabled={!canContinue}
           isLoading={isProcessing || isUploadingAudio}
-          className="rounded-xl py-4"
         >
           המשך
         </Button>

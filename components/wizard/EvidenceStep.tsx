@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { IconUpload, IconX, IconFile, IconPhoto, IconFileText } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
+import { StepHeading } from "@/components/wizard/StepHeading";
 import type { EvidenceFile } from "@/lib/types";
 import {
   normalizeEvidenceMime,
@@ -152,39 +153,30 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-[var(--color-ink)] mb-2">
-          יש לך ראיות? צרף אותן
-        </h2>
-        <p className="text-sm text-[var(--color-body)] leading-relaxed">
-          צילומי מסך, תמונות, חוזים, התכתבויות, חשבוניות או כל מסמך שיחזק את הטענה שלך.
-          המערכת תנתח אותם ותשלב אותם במכתב.
-        </p>
-      </div>
+      <StepHeading
+        kicker="שלב 2 · ראיות"
+        title="יש ראיות? לצרף אותן"
+        subtitle="צילומי מסך, חוזים, התכתבויות או חשבוניות. המערכת תנתח ותשלב במכתב."
+      />
 
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
-        className={`
-          relative border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all duration-200
-          ${
-            dragOver
-              ? "border-[var(--color-accent)] bg-[var(--color-accent)]/5"
-              : "border-[var(--color-border)] hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-elevated)]"
-          }
-        `}
+        className={`wizard-dropzone flex flex-col items-center justify-center gap-4 ${
+          dragOver ? "is-over" : ""
+        }`}
       >
-        <div className={`p-3 rounded-xl transition-colors ${dragOver ? "bg-[var(--color-accent)]/10" : "bg-[var(--color-elevated)] border border-[var(--color-border)]"}`}>
-          <IconUpload size={24} className="text-[var(--color-accent)]" />
+        <div className="wizard-mode-icon">
+          <IconUpload size={22} />
         </div>
         <div className="text-center">
           <p className="text-sm font-medium text-[var(--color-ink)]">
-            גרור קבצים לכאן או לחץ לבחירה
+            לגרור לכאן או ללחוץ לבחירה
           </p>
           <p className="text-xs text-[var(--color-subtle)] mt-1.5">
-            תמונות (JPG, PNG, WebP, HEIC) או PDF, עד 10MB לקובץ, מקסימום {MAX_FILES} קבצים
+            תמונות או PDF, עד 10MB, עד {MAX_FILES} קבצים
           </p>
         </div>
         <input
@@ -214,7 +206,7 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
           {files.map((file, index) => (
             <div
               key={`${file.name}-${index}`}
-              className="flex gap-3 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)]/20 transition-colors"
+              className="flex gap-3 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/80 hover:border-[var(--color-accent)]/25 transition-colors"
             >
               {getPreview(file)}
               <div className="flex-1 flex flex-col gap-2 min-w-0">
@@ -243,36 +235,33 @@ export function EvidenceStep({ initialFiles, onContinue, onSkip }: EvidenceStepP
       )}
 
       <div className="flex flex-col gap-3 mt-2">
-        <Button
-          variant="primary"
-          onClick={() =>
-            onContinue(
-              files.map((file) => ({
-                name: file.name,
-                type: file.type,
-                base64: file.base64,
-                description: file.description,
-                storage: file.storage,
-              }))
-            )
-          }
-          disabled={files.length === 0 || isUploading}
-          isLoading={isUploading}
-          className="w-full rounded-xl py-4"
-        >
-          {isUploading
-            ? "מעלה ראיות..."
-            : files.length > 0
-              ? `המשך עם ${files.length} ראיות`
-              : "המשך עם ראיות"}
-        </Button>
+        {files.length > 0 ? (
+          <Button
+            variant="primary"
+            onClick={() =>
+              onContinue(
+                files.map((file) => ({
+                  name: file.name,
+                  type: file.type,
+                  base64: file.base64,
+                  description: file.description,
+                  storage: file.storage,
+                }))
+              )
+            }
+            disabled={isUploading}
+            isLoading={isUploading}
+          >
+            {isUploading ? "מעלה ראיות..." : `המשך עם ${files.length} ראיות`}
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           onClick={onSkip}
           disabled={isUploading}
-          className="w-full rounded-xl py-3.5"
+          className="w-full"
         >
-          אין לי ראיות כרגע, המשך בלעדיהן
+          אין ראיות כרגע, להמשיך בלעדיהן
         </Button>
       </div>
     </div>

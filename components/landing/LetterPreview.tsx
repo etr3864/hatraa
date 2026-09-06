@@ -3,16 +3,11 @@ import { SAMPLE_LETTERS, type SampleLetter } from "@/components/landing/sample-l
 
 export function LetterPreview({
   letter = SAMPLE_LETTERS[0],
-  dimmed = false,
 }: {
   letter?: SampleLetter;
-  dimmed?: boolean;
 }) {
   return (
-    <div
-      className={`landing-letter-wrap relative mx-auto w-full max-w-[420px] transition-opacity duration-500 ${dimmed ? "opacity-40" : "opacity-100"}`}
-      aria-hidden
-    >
+    <div className="landing-letter-wrap relative mx-auto w-full max-w-none md:max-w-[420px]" aria-hidden>
       <article dir="rtl" className="landing-letter">
         <div className="h-[2px] bg-[#c9a84c]" />
         <div className="px-7 pt-5 pb-8 md:px-9 md:pt-6 md:pb-9">
