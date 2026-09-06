@@ -224,7 +224,7 @@ function ModelPriceForm({
   }) => Promise<void>;
 }) {
   const [provider, setProvider] = useState("GOOGLE");
-  const [model, setModel] = useState("gemini-3.5-flash");
+  const [model, setModel] = useState("gemini-3.8-flash");
   const [inputPrice, setInputPrice] = useState("");
   const [outputPrice, setOutputPrice] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(
@@ -258,7 +258,7 @@ function ModelPriceForm({
               const next = event.target.value;
               setProvider(next);
               setModel(
-                next === "GOOGLE" ? "gemini-3.5-flash" : "claude-sonnet-5"
+                next === "GOOGLE" ? "gemini-3.8-flash" : "claude-sonnet-5"
               );
             }}
             className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-ink)]"

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import {
   AiCallStatus,
   AiOperation,
@@ -21,6 +21,7 @@ import {
 import { logExternalError } from "@/backend/services/logging/external-error";
 import { parseLooseJson } from "./parse-json";
 import { sanitizeInput, wrapUserInput } from "../security/sanitize";
+import { GEMINI_FLASH_MODEL, geminiFlashConfig } from "./google-model";
 
 const EXTRACT_PROMPT = `אתה מנתח טקסט משפטי בעברית.
 משימתך: חלץ מהטקסט הבא את הפרטים לטופס JSON בדיוק.
@@ -140,8 +141,9 @@ export async function extractContext(
   const startedAt = Date.now();
   try {
     response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_FLASH_MODEL,
       contents: [{ role: "user", parts }],
+      config: geminiFlashConfig({ thinkingLevel: ThinkingLevel.LOW }),
     });
     await recordGoogleUsage(
       response,
@@ -212,7 +214,8 @@ async function transcribeAudio(
   const startedAt = Date.now();
   try {
     response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_FLASH_MODEL,
+      config: geminiFlashConfig({ thinkingLevel: ThinkingLevel.LOW }),
       contents: [
         {
           role: "user",

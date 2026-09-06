@@ -4,6 +4,7 @@ import {
   AiProvider,
 } from "@prisma/client";
 import { recordAiUsage } from "./record-usage";
+import { GEMINI_FLASH_MODEL } from "@/backend/services/ai/google-model";
 
 interface GoogleUsageResponse {
   usageMetadata?: {
@@ -35,7 +36,7 @@ export async function recordGoogleUsage(
     ...context,
     operation,
     provider: AiProvider.GOOGLE,
-    model: "gemini-3.5-flash",
+    model: GEMINI_FLASH_MODEL,
     status,
     inputTokens: usage?.promptTokenCount,
     outputTokens: (usage?.candidatesTokenCount ?? 0) + thinkingTokens,

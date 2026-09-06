@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IconRefresh } from "@tabler/icons-react";
+import { IconRefresh, IconTrash } from "@tabler/icons-react";
 import { KpiCards } from "@/components/admin/overview/KpiCards";
 import { ConversionFunnel } from "@/components/admin/overview/ConversionFunnel";
-import { TrendChart } from "@/components/admin/overview/TrendChart";
 import { ModelUsage } from "@/components/admin/overview/ModelUsage";
 import { CATEGORIES } from "@/lib/constants";
 import type { AdminAnalyticsResponse } from "@/lib/admin-analytics";
@@ -23,6 +22,7 @@ export default function AdminOverviewPage() {
   const [data, setData] = useState<AdminAnalyticsResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
 
   const query = useMemo(() => {
     const range = getRange(period, customFrom, customTo);
@@ -79,6 +79,55 @@ export default function AdminOverviewPage() {
     return () => window.clearTimeout(timeout);
   }, [load]);
 
+  const resetAnalytics = async () => {
+    const first = window.confirm(
+      "לאפס את האנליטיקות?\n\nיימחקו: ביקורים, משפך, סשנים, לוגי עלויות AI (וג׳ובים ישנים שמקושרים לסשן).\nלא יימחקו: לידים, מכתבים, תשלומים וראיות."
+    );
+    if (!first) return;
+
+    const typed = window.prompt(
+      'לאישור סופי הקלד בדיוק: RESET_ANALYTICS'
+    );
+    if (typed !== "RESET_ANALYTICS") {
+      if (typed !== null) {
+        window.alert("האיפוס בוטל — הטקסט לא תאם.");
+      }
+      return;
+    }
+
+    setIsResetting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/analytics/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "RESET_ANALYTICS" }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        events?: number;
+        aiCalls?: number;
+        sessions?: number;
+      };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "שגיאה באיפוס האנליטיקות");
+      }
+      await load();
+      window.alert(
+        `האנליטיקות אופסו.\nאירועים: ${payload.events ?? 0}\nקריאות AI: ${payload.aiCalls ?? 0}\nסשנים: ${payload.sessions ?? 0}`
+      );
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "שגיאה באיפוס האנליטיקות"
+      );
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -90,15 +139,26 @@ export default function AdminOverviewPage() {
             המרות, הכנסות ועלויות בינה מלאכותית
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={isLoading}
-          className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-body)] disabled:opacity-50"
-        >
-          <IconRefresh size={16} className={isLoading ? "animate-spin" : ""} />
-          רענון
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void resetAnalytics()}
+            disabled={isLoading || isResetting}
+            className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50"
+          >
+            <IconTrash size={16} />
+            {isResetting ? "מאפס…" : "איפוס אנליטיקות"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={isLoading || isResetting}
+            className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-body)] disabled:opacity-50"
+          >
+            <IconRefresh size={16} className={isLoading ? "animate-spin" : ""} />
+            רענון
+          </button>
+        </div>
       </header>
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
@@ -197,10 +257,7 @@ export default function AdminOverviewPage() {
               בהמרה לתשלום.
             </p>
           )}
-          <div className="grid gap-5 xl:grid-cols-[0.9fr_1.4fr]">
-            <ConversionFunnel funnel={data.funnel} />
-            <TrendChart data={data.timeline} />
-          </div>
+          <ConversionFunnel funnel={data.funnel} />
           <ModelUsage items={data.modelUsage} />
         </>
       ) : null}

@@ -1,4 +1,4 @@
-import { formatNumber, formatPercent } from "@/lib/admin-analytics";
+import { formatNumber } from "@/lib/admin-analytics";
 
 const STEPS = [
   ["SITE_VISIT", "כניסות"],
@@ -26,22 +26,14 @@ export function ConversionFunnel({
         משתמשים ייחודיים בכל שלב
       </p>
       <div className="mt-5 space-y-3">
-        {STEPS.map(([key, label], index) => {
+        {STEPS.map(([key, label]) => {
           const value = funnel[key] ?? 0;
-          const previous =
-            index === 0 ? value : funnel[STEPS[index - 1][0]] ?? 0;
-          const stepRate = previous > 0 ? value / previous : 0;
           return (
             <div key={key}>
               <div className="mb-1 flex items-center justify-between gap-3 text-sm">
                 <span className="text-[var(--color-body)]">{label}</span>
                 <span className="font-medium text-[var(--color-ink)]">
                   {formatNumber(value)}
-                  {index > 0 && (
-                    <span className="mr-2 text-xs text-[var(--color-subtle)]">
-                      {formatPercent(stepRate)}
-                    </span>
-                  )}
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--color-border)]/40">

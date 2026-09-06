@@ -14,12 +14,6 @@ export interface AdminAnalyticsResponse {
   summary: AnalyticsSummary;
   previous: AnalyticsSummary;
   funnel: Record<string, number>;
-  timeline: Array<{
-    date: string;
-    letters: number;
-    payments: number;
-    aiCostIls: number;
-  }>;
   modelUsage: Array<{
     model: string;
     provider: string;

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import {
   AiCallStatus,
   AiOperation,
@@ -14,6 +14,7 @@ import { sanitizeLetterContent } from "./sanitize-letter-content";
 import { mapEvidenceFormatError } from "@/lib/evidence-mime";
 import { logExternalError } from "@/backend/services/logging/external-error";
 import { sanitizeInput } from "../security/sanitize";
+import { GEMINI_FLASH_MODEL, geminiFlashConfig } from "./google-model";
 
 let client: GoogleGenAI | null = null;
 
@@ -171,9 +172,12 @@ async function callRewriteModel(
   const startedAt = Date.now();
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_FLASH_MODEL,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { systemInstruction: REWRITE_SYSTEM },
+      config: geminiFlashConfig({
+        systemInstruction: REWRITE_SYSTEM,
+        thinkingLevel: ThinkingLevel.MEDIUM,
+      }),
     });
     await recordGoogleUsage(
       response,

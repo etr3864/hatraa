@@ -1,5 +1,3 @@
-import { hasAnalyticsConsent } from "@/lib/cookie-consent";
-
 export type ClientAnalyticsEvent =
   | "SITE_VISIT"
   | "WIZARD_STARTED"
@@ -26,10 +24,6 @@ export function trackClientEvent(
   type: ClientAnalyticsEvent,
   dimensions: AnalyticsDimensions = {}
 ): void {
-  if (typeof window !== "undefined" && !hasAnalyticsConsent()) {
-    return;
-  }
-
   void fetch("/api/analytics/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

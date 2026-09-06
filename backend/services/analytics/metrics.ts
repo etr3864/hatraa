@@ -25,17 +25,6 @@ interface ModelUsageRow {
   costIls: Prisma.Decimal | null;
 }
 
-interface TimelineRow {
-  day: Date;
-  generated: bigint;
-  paid: bigint;
-}
-
-interface CostTimelineRow {
-  day: Date;
-  costIls: Prisma.Decimal | null;
-}
-
 interface RevenueRow {
   revenue: bigint;
   completedPayments: bigint;
@@ -50,10 +39,9 @@ export async function getAdminAnalytics(filters: AnalyticsFilters) {
     to: new Date(filters.to.getTime() - duration),
   };
 
-  const [current, previous, timeline, modelUsage] = await Promise.all([
+  const [current, previous, modelUsage] = await Promise.all([
     getSummary(filters),
     getSummary(previousFilters),
-    getTimeline(filters),
     getModelUsage(filters),
   ]);
 
@@ -65,7 +53,6 @@ export async function getAdminAnalytics(filters: AnalyticsFilters) {
     summary: current,
     previous,
     funnel: current.funnel,
-    timeline,
     modelUsage: modelUsage.map((item) => ({
       ...item,
       averageTokensPerLetter:
@@ -191,73 +178,6 @@ async function getModelUsage(filters: AnalyticsFilters) {
   }));
 }
 
-async function getTimeline(filters: AnalyticsFilters) {
-  const sessionWhere = buildSessionWhere(filters);
-  const [events, costs] = await Promise.all([
-    prisma.$queryRaw<TimelineRow[]>(Prisma.sql`
-      SELECT
-        date_trunc('day', e."occurredAt" AT TIME ZONE 'Asia/Jerusalem')::date AS "day",
-        COUNT(*) FILTER (WHERE e."type" = 'LETTER_GENERATED')::bigint AS "generated",
-        COUNT(*) FILTER (
-          WHERE e."type" = 'PAYMENT_COMPLETED'
-          AND EXISTS (
-            SELECT 1 FROM "Payment" p
-            WHERE p."leadId" = e."leadId" AND p."status" = 'completed'
-          )
-        )::bigint AS "paid"
-      FROM "AnalyticsEvent" e
-      JOIN "AnalyticsSession" s ON s."id" = e."sessionId"
-      WHERE e."occurredAt" >= ${filters.from}
-        AND e."occurredAt" < ${filters.to}
-        ${sessionWhere}
-      GROUP BY "day"
-      ORDER BY "day"
-    `),
-    prisma.$queryRaw<CostTimelineRow[]>(Prisma.sql`
-      SELECT
-        date_trunc('day', a."createdAt" AT TIME ZONE 'Asia/Jerusalem')::date AS "day",
-        COALESCE(SUM(a."costIls"), 0) AS "costIls"
-      FROM "AiCallLog" a
-      LEFT JOIN "AnalyticsSession" s ON s."id" = a."sessionId"
-      WHERE a."createdAt" >= ${filters.from}
-        AND a."createdAt" < ${filters.to}
-        AND a."status" = 'SUCCEEDED'
-        ${sessionWhere}
-      GROUP BY "day"
-      ORDER BY "day"
-    `),
-  ]);
-
-  const byDay = new Map<
-    string,
-    { date: string; letters: number; payments: number; aiCostIls: number }
-  >();
-
-  for (const row of events) {
-    const date = toDateKey(row.day);
-    byDay.set(date, {
-      date,
-      letters: Number(row.generated),
-      payments: Number(row.paid),
-      aiCostIls: 0,
-    });
-  }
-
-  for (const row of costs) {
-    const date = toDateKey(row.day);
-    const current = byDay.get(date) ?? {
-      date,
-      letters: 0,
-      payments: 0,
-      aiCostIls: 0,
-    };
-    current.aiCostIls = Number(row.costIls ?? 0);
-    byDay.set(date, current);
-  }
-
-  return [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
-
 function buildSessionWhere(filters: AnalyticsFilters): Prisma.Sql {
   return Prisma.sql`
     ${filters.category ? Prisma.sql`AND s."category" = ${filters.category}` : Prisma.empty}
@@ -266,9 +186,5 @@ function buildSessionWhere(filters: AnalyticsFilters): Prisma.Sql {
     ${typeof filters.hasEvidence === "boolean" ? Prisma.sql`AND s."hasEvidence" = ${filters.hasEvidence}` : Prisma.empty}
     ${filters.senderType ? Prisma.sql`AND s."senderType" = ${filters.senderType}` : Prisma.empty}
   `;
-}
-
-function toDateKey(value: Date): string {
-  return new Date(value).toISOString().slice(0, 10);
 }
 
