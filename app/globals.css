@@ -1152,6 +1152,35 @@ small {
   transform: translateZ(0);
 }
 
+.path-card {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.path-card.is-on {
+  opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .path-card {
+    transform: translate3d(0, 16px, 0);
+    transition:
+      opacity 0.4s ease,
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .path-card.is-on {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .path-card {
+    transform: none;
+    transition: opacity 0.2s ease;
+  }
+}
+
 .path-copy {
   position: relative;
   padding: 2px 2px 4px;

@@ -192,11 +192,7 @@ export function TimelineSteps() {
                 className={`path-node z-20 ${isActive ? "is-on" : ""}`}
               />
 
-              <div
-                className={`relative z-30 max-w-[360px] transition-opacity duration-300 ease-out ${
-                  isActive ? "opacity-100" : "opacity-0"
-                }`}
-              >
+              <div className={`path-card relative z-30 max-w-[360px]${isActive ? " is-on" : ""}`}>
                 <StepObject kind={step.id} />
                 <div className="path-copy">
                   <p className="path-step-num">{step.number}</p>
