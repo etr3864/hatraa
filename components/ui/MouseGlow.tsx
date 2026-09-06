@@ -2,6 +2,14 @@
 
 import { useEffect } from "react";
 
+interface ZoneBox {
+  el: HTMLElement;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
 export function MouseGlow() {
   useEffect(() => {
     if (window.matchMedia("(hover: none), (max-width: 767px)").matches) return;
@@ -13,16 +21,34 @@ export function MouseGlow() {
     let frame = 0;
     let armed = false;
     let dirty = false;
+    let boxes: ZoneBox[] = [];
+
+    const measure = () => {
+      boxes = [...document.querySelectorAll<HTMLElement>("[data-glow]")].map((el) => {
+        const rect = el.getBoundingClientRect();
+        return {
+          el,
+          top: rect.top + window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width,
+          height: rect.height,
+        };
+      });
+    };
+
+    const boxOf = (el: HTMLElement) => boxes.find((box) => box.el === el);
 
     const zoneAt = (px: number, py: number) => {
-      if (lit) {
-        const box = lit.getBoundingClientRect();
-        if (px >= box.left && px <= box.right && py >= box.top && py <= box.bottom) {
-          return lit;
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+      for (const box of boxes) {
+        const left = box.left - scrollX;
+        const top = box.top - scrollY;
+        if (px >= left && px <= left + box.width && py >= top && py <= top + box.height) {
+          return box.el;
         }
       }
-      const hit = document.elementFromPoint(px, py);
-      return hit instanceof Element ? hit.closest<HTMLElement>("[data-glow]") : null;
+      return null;
     };
 
     document.querySelectorAll<HTMLElement>("[data-glow]").forEach((zone) => {
@@ -58,8 +84,9 @@ export function MouseGlow() {
         return;
       }
       if (!lit || !spot) return;
-      const box = lit.getBoundingClientRect();
-      spot.style.transform = `translate3d(${x - box.left}px, ${y - box.top}px, 0)`;
+      const box = boxOf(lit);
+      if (!box) return;
+      spot.style.transform = `translate3d(${x - (box.left - window.scrollX)}px, ${y - (box.top - window.scrollY)}px, 0)`;
     };
 
     const loop = () => {
@@ -93,16 +120,17 @@ export function MouseGlow() {
       armed = false;
     };
 
+    measure();
     window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
-    window.addEventListener("wheel", onScroll, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", measure, { passive: true });
     document.documentElement.addEventListener("mouseleave", onLeave);
     return () => {
       onLeave();
       document.querySelectorAll(".glow-spot").forEach((node) => node.remove());
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("wheel", onScroll, true);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", measure);
       document.documentElement.removeEventListener("mouseleave", onLeave);
       cancelAnimationFrame(frame);
     };

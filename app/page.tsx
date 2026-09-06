@@ -14,7 +14,7 @@ export default function LandingPage() {
     <div className="min-h-screen flex flex-col bg-[var(--color-bg)]" dir="rtl">
       <MouseGlow />
       <header className="fixed top-0 left-0 right-0 z-50 header-enter">
-        <div className="backdrop-blur-xl bg-[#111113]/80 border-b border-white/[0.04]">
+        <div className="bg-[#111113]/92 border-b border-white/[0.04]">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
             <BrandLogo size="header" className="header-brand opacity-95" />
             <Link href="/wizard">
@@ -111,7 +111,6 @@ function HowItWorks() {
       <div className="absolute inset-x-0 -top-32 h-64 bg-gradient-to-b from-[#0d0d0f] to-[#0a0a0c] pointer-events-none" />
       <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[#0a0a0c] to-transparent pointer-events-none z-[1]" />
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0a0a0c] to-transparent pointer-events-none z-[1]" />
-      <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
       <HowItWorksMarks />
       <div className="max-w-4xl mx-auto relative z-[2]">
         <ScrollReveal>

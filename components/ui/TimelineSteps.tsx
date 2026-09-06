@@ -93,21 +93,31 @@ export function TimelineSteps() {
 
     let raf = 0;
     let current = progressRef.current;
+    let docTop = 0;
+    let height = 1;
+    let circleTops = [0, 0, 0];
     const ease = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? 1
       : 0.38;
 
-    const progressFromScroll = () => {
+    const measure = () => {
       const rect = container.getBoundingClientRect();
-      const travel = Math.max(rect.height * 0.88, 1);
-      return Math.max(0, Math.min(1, (window.innerHeight * 0.7 - rect.top) / travel));
+      docTop = rect.top + window.scrollY;
+      height = Math.max(rect.height, 1);
+      circleTops = circleRefs.current.map((el) =>
+        el ? el.getBoundingClientRect().top + window.scrollY : 0
+      );
+    };
+
+    const progressFromScroll = () => {
+      const top = docTop - window.scrollY;
+      const travel = Math.max(height * 0.88, 1);
+      return Math.max(0, Math.min(1, (window.innerHeight * 0.7 - top) / travel));
     };
 
     const syncCards = () => {
-      const line = window.innerHeight * 0.88;
-      const next = circleRefs.current.map((el) =>
-        Boolean(el && el.getBoundingClientRect().top < line)
-      );
+      const line = window.scrollY + window.innerHeight * 0.88;
+      const next = circleTops.map((top) => top < line);
       const prev = activeRef.current;
       if (next.some((value, i) => value !== prev[i])) {
         activeRef.current = next;
@@ -134,12 +144,18 @@ export function TimelineSteps() {
       if (!raf) raf = requestAnimationFrame(tick);
     };
 
+    const onResize = () => {
+      measure();
+      kick();
+    };
+
+    measure();
     window.addEventListener("scroll", kick, { passive: true });
-    window.addEventListener("resize", kick, { passive: true });
+    window.addEventListener("resize", onResize, { passive: true });
     tick();
     return () => {
       window.removeEventListener("scroll", kick);
-      window.removeEventListener("resize", kick);
+      window.removeEventListener("resize", onResize);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [pathD]);
